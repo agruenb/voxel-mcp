@@ -6,6 +6,7 @@ using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
+using VoxelKing.Game.World;
 
 public partial class GameRoot : Node
 {
@@ -20,6 +21,7 @@ public partial class GameRoot : Node
     public IVoxelWorld VoxelWorld { get; private set; } = null!;
     public ITerrainGenerator TerrainGenerator { get; private set; } = null!;
     public IChunkMesher ChunkMesher { get; private set; } = null!;
+    public ChunkStreamer ChunkStreamer { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -73,6 +75,28 @@ public partial class GameRoot : Node
         VoxelWorld = new VoxelWorld(BlockRegistry, EventBus);
         TerrainGenerator = new TerrainGenerator(config.World, BlockRegistry);
         ChunkMesher = new ChunkMesher(BlockRegistry);
+
+        ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
+        if (ChunkStreamer.GetParent() == null)
+        {
+            AddChild(ChunkStreamer);
+        }
+
+        var camera = GetNodeOrNull<Camera3D>("Camera3D");
+        if (camera != null)
+        {
+            ChunkStreamer.FocusNode = camera;
+        }
+
+        ChunkStreamer.Initialize(
+            VoxelWorld,
+            TerrainGenerator,
+            ChunkMesher,
+            Dispatcher,
+            EventBus,
+            LoggerFactory.CreateLogger<ChunkStreamer>(),
+            config.World
+        );
 
         GD.Print("started");
         Logger.LogInfo("GameRoot initialized successfully");
