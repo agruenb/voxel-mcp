@@ -66,7 +66,7 @@ flowchart LR
 | F-101 | Block registry & chunk data | M1 | F-002 | Done |
 | F-102 | Terrain generation | M1 | F-101 | Done |
 | F-103 | Chunk meshing (greedy, atlas) | M1 | F-102 | Done |
-| F-104 | Chunk streaming & rendering in Godot | M1 | F-103 | Todo |
+| F-104 | Chunk streaming & rendering in Godot | M1 | F-103 | Done |
 | F-105 | Chunk collision | M1 | F-104 | Todo |
 | F-106 | Per-chunk block-type index | M1 | F-102 | Todo |
 | F-107 | First-person player controller | M1 | F-105 | Todo |

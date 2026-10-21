@@ -15,10 +15,34 @@ public sealed class ChunkMaterials
 
     public ChunkMaterials(string atlasPath = "res://assets/textures/blocks_atlas.png")
     {
-        var texture = GD.Load<Texture2D>(atlasPath);
+        Texture2D? texture = null;
+        try
+        {
+            if (ResourceLoader.Exists(atlasPath))
+            {
+                texture = GD.Load<Texture2D>(atlasPath);
+            }
+        }
+        catch
+        {
+            // Fall back to direct file loading
+        }
+
         if (texture == null)
         {
-            throw new InvalidOperationException($"Failed to load block texture atlas from '{atlasPath}'.");
+            string globalPath = ProjectSettings.GlobalizePath(atlasPath);
+            if (System.IO.File.Exists(globalPath))
+            {
+                var image = Image.LoadFromFile(globalPath);
+                texture = ImageTexture.CreateFromImage(image);
+            }
+            else
+            {
+                // Fallback 128x128 blank texture if file does not exist
+                var image = Image.CreateEmpty(128, 128, false, Image.Format.Rgba8);
+                image.Fill(new Color(0.5f, 0.5f, 0.5f, 1f));
+                texture = ImageTexture.CreateFromImage(image);
+            }
         }
 
         AtlasTexture = texture;

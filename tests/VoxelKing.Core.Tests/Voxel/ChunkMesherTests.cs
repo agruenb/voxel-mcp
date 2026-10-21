@@ -345,4 +345,54 @@ public class ChunkMesherTests
             _mesher.MeshAsync(snapshot, cts.Token)
         );
     }
+
+    [Fact]
+    public void BlockEdit_RemeshesChunkAndUpdatesBorderNeighbor()
+    {
+        var bus = new EventBus();
+        var world = new VoxelWorld(_registry, bus);
+        ushort stoneId = _registry.GetId("stone");
+
+        // Subscribe to BlockChanged to verify event bus propagation
+        BlockChanged? receivedEvent = null;
+        using var sub = bus.Subscribe<BlockChanged>(e => receivedEvent = e);
+
+        // Pre-populate Chunk (1, 0, 0) with a stone block at local (0, 5, 5) -> world (32, 5, 5)
+        world.SetBlock(new Vec3i(32, 5, 5), stoneId);
+
+        var chunkB = world.GetChunk(new Vec3i(1, 0, 0))!;
+        var snapshotBInitial = ChunkMeshSnapshot.Create(chunkB, world);
+        var meshBInitial = _mesher.Mesh(snapshotBInitial);
+
+        // West face of Chunk B's block currently looks into empty air in Chunk A -> 6 faces
+        Assert.Equal(6, meshBInitial.Opaque.FaceCount);
+        Assert.Contains(Vec3.Left, meshBInitial.Opaque.Normals);
+
+        // Edit block in Chunk A at border (31, 5, 5)
+        var editWorldPos = new Vec3i(31, 5, 5);
+        world.SetBlock(editWorldPos, stoneId);
+
+        // Verify EventBus received event immediately
+        Assert.NotNull(receivedEvent);
+        Assert.Equal(editWorldPos, receivedEvent.Value.Position);
+        Assert.Equal((ushort)0, receivedEvent.Value.OldBlock);
+        Assert.Equal(stoneId, receivedEvent.Value.NewBlock);
+
+        // Verify both chunks are dirty
+        var chunkA = world.GetChunk(new Vec3i(0, 0, 0))!;
+        Assert.True(chunkA.IsDirty);
+        Assert.True(chunkB.IsDirty);
+
+        // Re-mesh Chunk A: its East face towards Chunk B at (32, 5, 5) is now culled! (5 faces, no Right normal)
+        var snapshotA = ChunkMeshSnapshot.Create(chunkA, world);
+        var meshA = _mesher.Mesh(snapshotA);
+        Assert.Equal(5, meshA.Opaque.FaceCount);
+        Assert.DoesNotContain(Vec3.Right, meshA.Opaque.Normals);
+
+        // Re-mesh Chunk B: its West face towards Chunk A at (31, 5, 5) is now culled! (5 faces, no Left normal)
+        var snapshotBUpdated = ChunkMeshSnapshot.Create(chunkB, world);
+        var meshBUpdated = _mesher.Mesh(snapshotBUpdated);
+        Assert.Equal(5, meshBUpdated.Opaque.FaceCount);
+        Assert.DoesNotContain(Vec3.Left, meshBUpdated.Opaque.Normals);
+    }
 }

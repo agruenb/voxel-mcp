@@ -116,4 +116,53 @@ public class ChunkStreamPlannerTests
         Assert.False(planner.IsWithinLoadRadius(beyond, center));
         Assert.True(planner.IsBeyondUnloadRadius(beyond, center));
     }
+
+    [Fact]
+    public void GenerationRadius_ContainsAllCardinalNeighborsOfLoadRadius()
+    {
+        var config = new ChunkStreamPlannerConfig(horizontalRadius: 3, hysteresis: 1, minChunkY: 0, maxChunkY: 3);
+        var planner = new ChunkStreamPlanner(config);
+        var center = new Vec3i(0, 1, 0);
+
+        var loadChunks = planner.GetChunksInLoadRadius(center).ToHashSet();
+        var genChunks = planner.GetChunksInGenerationRadius(center).ToHashSet();
+
+        // Every chunk in load radius must have all its horizontal cardinal neighbors present in generation radius
+        foreach (var chunk in loadChunks)
+        {
+            var neighbors = new[]
+            {
+                chunk + Vec3i.Left,
+                chunk + Vec3i.Right,
+                chunk + Vec3i.North,
+                chunk + Vec3i.South,
+            };
+
+            foreach (var neighbor in neighbors)
+            {
+                Assert.Contains(neighbor, genChunks);
+            }
+        }
+    }
+
+    [Fact]
+    public void MovingFocus_UpdatesLoadAndUnloadSetsSeamlessly()
+    {
+        var config = new ChunkStreamPlannerConfig(horizontalRadius: 3, hysteresis: 1, minChunkY: 0, maxChunkY: 0);
+        var planner = new ChunkStreamPlanner(config);
+
+        var startPos = new Vec3i(0, 0, 0);
+        var initialLoaded = planner.GetChunksInLoadRadius(startPos).ToHashSet();
+
+        // Simulate flying 10 chunks to the east
+        var movedPos = new Vec3i(10, 0, 0);
+        var newRequired = planner.GetChunksInLoadRadius(movedPos);
+        var toUnload = planner.GetChunksToUnload(movedPos, initialLoaded);
+
+        // Chunks at origin must be marked for unload since dist=10 > 3+1=4
+        Assert.Contains(startPos, toUnload);
+
+        // New chunks must contain the new center
+        Assert.Contains(movedPos, newRequired);
+    }
 }

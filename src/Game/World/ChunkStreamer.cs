@@ -233,6 +233,12 @@ public partial class ChunkStreamer : Node3D
     {
         _meshingCoords.Remove(meshData.ChunkCoord);
 
+        // If chunk was marked dirty again while meshing (e.g. from a block edit), trigger re-mesh
+        if (_dirtyMeshCoords.Contains(meshData.ChunkCoord))
+        {
+            StartMeshingTask(meshData.ChunkCoord);
+        }
+
         Vector3 currentFocus = FocusNode?.GlobalPosition ?? FocusPosition;
         Vec3i centerChunk = VoxelCoordinates.WorldToChunk(currentFocus.ToCoreVec3i());
 
@@ -243,7 +249,10 @@ public partial class ChunkStreamer : Node3D
 
         if (_activeNodes.TryGetValue(meshData.ChunkCoord, out var existingNode))
         {
-            existingNode.ApplyMesh(meshData, _materials.Opaque, _materials.Transparent);
+            if (meshData.Version >= existingNode.MeshVersion)
+            {
+                existingNode.ApplyMesh(meshData, _materials.Opaque, _materials.Transparent);
+            }
         }
         else
         {
@@ -251,6 +260,11 @@ public partial class ChunkStreamer : Node3D
             newNode.ApplyMesh(meshData, _materials.Opaque, _materials.Transparent);
             AddChild(newNode);
             _activeNodes[meshData.ChunkCoord] = newNode;
+
+            if (_activeNodes.Count % 25 == 1)
+            {
+                _logger?.LogInfo($"Streaming progress: {_activeNodes.Count} active chunk nodes rendered, {_voxelWorld.ChunkCount} generated in world");
+            }
         }
     }
 
@@ -291,6 +305,8 @@ public partial class ChunkStreamer : Node3D
     {
         _blockChangedSubscription?.Dispose();
         _blockChangedSubscription = null;
+
+        _logger?.LogInfo($"ChunkStreamer exit. Active chunk nodes: {_activeNodes.Count}, Total generated chunks in world: {_voxelWorld?.ChunkCount ?? 0}");
 
         foreach (var node in _activeNodes.Values)
         {
