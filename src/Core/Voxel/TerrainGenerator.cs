@@ -13,6 +13,7 @@ public sealed class TerrainGenerator : ITerrainGenerator
     private readonly FastNoise _heightNoise;
     private readonly FastNoise _coalNoise;
 
+    private readonly IBlockRegistry _blockRegistry;
     private readonly ushort _airId;
     private readonly ushort _grassId;
     private readonly ushort _dirtId;
@@ -30,6 +31,7 @@ public sealed class TerrainGenerator : ITerrainGenerator
     {
         ArgumentNullException.ThrowIfNull(blockRegistry);
         Seed = seed;
+        _blockRegistry = blockRegistry;
         _config = config ?? new TerrainGeneratorConfig();
 
         _heightNoise = new FastNoise(seed);
@@ -68,7 +70,7 @@ public sealed class TerrainGenerator : ITerrainGenerator
 
     public ChunkData GenerateChunk(Vec3i chunkCoord)
     {
-        var chunk = new ChunkData(chunkCoord);
+        var chunk = new ChunkData(chunkCoord, _blockRegistry.IsIndexed);
         PopulateChunk(chunk);
         return chunk;
     }
@@ -76,6 +78,11 @@ public sealed class TerrainGenerator : ITerrainGenerator
     public void PopulateChunk(ChunkData chunk)
     {
         ArgumentNullException.ThrowIfNull(chunk);
+
+        if (chunk.BlockIndex.IsIndexedPredicate == null)
+        {
+            chunk.BlockIndex.SetIndexPredicate(_blockRegistry.IsIndexed, chunk.Blocks);
+        }
 
         int chunkMinX = chunk.ChunkCoord.X * ChunkData.Size;
         int chunkMinY = chunk.ChunkCoord.Y * ChunkData.Size;

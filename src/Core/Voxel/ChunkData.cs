@@ -18,18 +18,20 @@ public sealed class ChunkData
     public Vec3i ChunkCoord { get; }
     public bool IsDirty { get; set; }
     public uint Version { get; private set; }
+    public ChunkBlockIndex BlockIndex { get; }
 
     public ReadOnlySpan<ushort> Blocks => _blocks;
 
-    public ChunkData(Vec3i chunkCoord)
+    public ChunkData(Vec3i chunkCoord, Func<ushort, bool>? isIndexed = null)
     {
         ChunkCoord = chunkCoord;
         _blocks = new ushort[Volume];
+        BlockIndex = new ChunkBlockIndex(isIndexed);
         IsDirty = true;
         Version = 1;
     }
 
-    public ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version = 1, bool isDirty = false)
+    public ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version = 1, bool isDirty = false, Func<ushort, bool>? isIndexed = null)
     {
         ArgumentNullException.ThrowIfNull(blocks);
         if (blocks.Length != Volume)
@@ -41,6 +43,17 @@ public sealed class ChunkData
         _blocks = (ushort[])blocks.Clone();
         Version = version;
         IsDirty = isDirty;
+        BlockIndex = new ChunkBlockIndex(isIndexed);
+        BlockIndex.Rebuild(_blocks, isIndexed);
+    }
+
+    private ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version, bool isDirty, ChunkBlockIndex blockIndex)
+    {
+        ChunkCoord = chunkCoord;
+        _blocks = (ushort[])blocks.Clone();
+        Version = version;
+        IsDirty = isDirty;
+        BlockIndex = blockIndex.Clone();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -80,9 +93,11 @@ public sealed class ChunkData
         }
 
         int index = GetIndex(x, y, z);
-        if (_blocks[index] != blockId)
+        ushort oldBlock = _blocks[index];
+        if (oldBlock != blockId)
         {
             _blocks[index] = blockId;
+            BlockIndex.OnBlockSet(new Vec3i(x, y, z), oldBlock, blockId);
             IsDirty = true;
             Version++;
         }
@@ -92,6 +107,18 @@ public sealed class ChunkData
     public void SetBlock(Vec3i localPos, ushort blockId) => SetBlock(localPos.X, localPos.Y, localPos.Z, blockId);
 
     /// <summary>
+    /// Returns the total number of voxels of the given block ID in this chunk.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetBlockCount(ushort blockId) => BlockIndex.GetCount(blockId);
+
+    /// <summary>
+    /// Gets the local positions of all voxels of the specified block ID in this chunk.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IReadOnlyCollection<Vec3i> GetIndexedPositions(ushort blockId) => BlockIndex.GetPositions(blockId);
+
+    /// <summary>
     /// Returns a deep copy of the underlying block array.
     /// </summary>
     public ushort[] GetRawBlocksCopy() => (ushort[])_blocks.Clone();
@@ -99,5 +126,5 @@ public sealed class ChunkData
     /// <summary>
     /// Creates a complete snapshot of this chunk.
     /// </summary>
-    public ChunkData Clone() => new(ChunkCoord, _blocks, Version, IsDirty);
+    public ChunkData Clone() => new(ChunkCoord, _blocks, Version, IsDirty, BlockIndex);
 }

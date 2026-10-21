@@ -154,6 +154,12 @@ public sealed class BlockRegistry : IBlockRegistry
 
     public bool Contains(string stringId) => stringId != null && _stringToId.ContainsKey(stringId);
 
+    public bool IsIndexed(ushort id) =>
+        id < _definitionsById.Length && _definitionsById[id] is { } def && def.IsIndexed;
+
+    public bool IsIndexed(string stringId) =>
+        TryGetDefinition(stringId, out var def) && def.IsIndexed;
+
     /// <summary>
     /// Loads block definitions from a JSON string.
     /// </summary>

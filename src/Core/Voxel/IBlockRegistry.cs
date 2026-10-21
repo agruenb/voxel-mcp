@@ -74,6 +74,16 @@ public interface IBlockRegistry
     bool Contains(string stringId);
 
     /// <summary>
+    /// Checks whether the specified numeric block ID is flagged as indexed.
+    /// </summary>
+    bool IsIndexed(ushort id);
+
+    /// <summary>
+    /// Checks whether the specified string block ID is flagged as indexed.
+    /// </summary>
+    bool IsIndexed(string stringId);
+
+    /// <summary>
     /// Gets all registered block definitions ordered by numeric runtime ID.
     /// </summary>
     IReadOnlyList<BlockDefinition> AllDefinitions { get; }

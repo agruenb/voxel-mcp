@@ -70,4 +70,28 @@ public interface IVoxelWorld
     /// Unloads and removes a chunk at the specified chunk coordinate.
     /// </summary>
     bool RemoveChunk(Vec3i chunkCoord);
+
+    /// <summary>
+    /// Finds the nearest block of the specified type within the given Euclidean radius of origin.
+    /// Returns null if no matching block is found within radius.
+    /// </summary>
+    Vec3i? FindNearest(ushort blockId, Vec3i origin, int radius);
+
+    /// <summary>
+    /// Finds the nearest block of the specified type within the given Euclidean radius of origin.
+    /// Returns null if no matching block is found within radius or if the string ID is invalid.
+    /// </summary>
+    Vec3i? FindNearest(string blockId, Vec3i origin, int radius);
+
+    /// <summary>
+    /// Finds all blocks of the specified type within the given Euclidean radius of origin,
+    /// ordered nearest-first, up to the maximum number specified.
+    /// </summary>
+    IReadOnlyList<Vec3i> FindAll(ushort blockId, Vec3i origin, int radius, int max = 64);
+
+    /// <summary>
+    /// Finds all blocks of the specified type within the given Euclidean radius of origin,
+    /// ordered nearest-first, up to the maximum number specified.
+    /// </summary>
+    IReadOnlyList<Vec3i> FindAll(string blockId, Vec3i origin, int radius, int max = 64);
 }
