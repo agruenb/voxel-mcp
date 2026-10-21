@@ -40,4 +40,19 @@ public sealed class MeshData
             throw new ArgumentException("Vertices, Normals, and UV arrays must have equal lengths.");
         }
     }
+
+    /// <summary>
+    /// Returns the flattened array of triangle vertex positions (length = Indices.Length).
+    /// Used for physics collision meshes and geometric queries.
+    /// </summary>
+    public Vec3[] GetTriangleVertices()
+    {
+        if (Indices.Length == 0) return Array.Empty<Vec3>();
+        var result = new Vec3[Indices.Length];
+        for (int i = 0; i < Indices.Length; i++)
+        {
+            result[i] = Vertices[Indices[i]];
+        }
+        return result;
+    }
 }

@@ -8,12 +8,14 @@ using VoxelKing.Game.Common;
 
 /// <summary>
 /// Godot MeshInstance3D node representing a single 32x32x32 voxel chunk in the scene tree.
-/// Renders opaque and transparent submeshes using shared materials.
+/// Renders opaque and transparent submeshes and manages static physics collision via ConcavePolygonShape3D.
 /// </summary>
 public partial class ChunkNode : MeshInstance3D
 {
     public Vec3i ChunkCoord { get; private set; }
     public uint MeshVersion { get; private set; }
+    public StaticBody3D? StaticBody { get; private set; }
+    public CollisionShape3D? CollisionShape { get; private set; }
 
     public ChunkNode()
         : this(Vec3i.Zero)
@@ -42,6 +44,7 @@ public partial class ChunkNode : MeshInstance3D
         if (meshData.IsEmpty)
         {
             Mesh = null;
+            UpdateCollision(MeshData.Empty);
             return;
         }
 
@@ -66,6 +69,43 @@ public partial class ChunkNode : MeshInstance3D
         }
 
         Mesh = arrayMesh;
+
+        // Build / rebuild static physics collision from opaque solid mesh
+        UpdateCollision(meshData.Opaque);
+    }
+
+    private void UpdateCollision(MeshData opaqueMesh)
+    {
+        if (opaqueMesh.IsEmpty)
+        {
+            if (CollisionShape != null)
+            {
+                CollisionShape.Shape = null;
+                CollisionShape.Disabled = true;
+            }
+            return;
+        }
+
+        if (StaticBody == null)
+        {
+            StaticBody = new StaticBody3D { Name = "StaticBody" };
+            CollisionShape = new CollisionShape3D { Name = "CollisionShape" };
+            StaticBody.AddChild(CollisionShape);
+            AddChild(StaticBody);
+        }
+
+        var triangleVertices = opaqueMesh.GetTriangleVertices();
+        var collisionFaces = new Vector3[triangleVertices.Length];
+        for (int i = 0; i < triangleVertices.Length; i++)
+        {
+            collisionFaces[i] = triangleVertices[i].ToGodot();
+        }
+
+        var shape = new ConcavePolygonShape3D();
+        shape.SetFaces(collisionFaces);
+        shape.BackfaceCollision = true;
+        CollisionShape!.Shape = shape;
+        CollisionShape.Disabled = false;
     }
 
     private static Godot.Collections.Array BuildSurfaceArrays(MeshData meshData)
