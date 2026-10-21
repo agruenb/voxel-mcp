@@ -61,7 +61,7 @@ flowchart LR
 |---|---|---|---|---|
 | F-001 | Convert project to Godot .NET / C# solution | M0 | – | Done |
 | F-002 | Core library + test project + solution layout | M0 | F-001 | Done |
-| F-003 | Configuration system | M0 | F-002 | Todo |
+| F-003 | Configuration system | M0 | F-002 | Done |
 | F-004 | Logging, EventBus, MainThreadDispatcher | M0 | F-002 | Todo |
 | F-101 | Block registry & chunk data | M1 | F-002 | Todo |
 | F-102 | Terrain generation | M1 | F-101 | Todo |

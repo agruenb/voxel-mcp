@@ -1,0 +1,42 @@
+{
+  "world": {
+    "chunkSize": 32,
+    "loadedChunkRadius": 6,
+    "seed": 1337,
+    "perceptionRadiusBlocks": 24,
+    "perceptionRadiusEntities": 32
+  },
+  "npc": {
+    "physicsTickRateHz": 60,
+    "brainTickRateHz": 10,
+    "distantBrainTickRateHz": 2,
+    "lodDistanceThreshold": 64.0,
+    "sayRadius": 16.0,
+    "sayRateLimitSeconds": 2.0
+  },
+  "brainLimits": {
+    "maxInstructionsPerTick": 2000,
+    "maxConsecutiveForcedYields": 50,
+    "maxInstructionsPerHandler": 5000,
+    "maxTopLevelChunkInstructions": 10000,
+    "maxScriptSizeBytes": 8192,
+    "maxSayLength": 200,
+    "maxMemoryKeys": 64,
+    "maxMemoryTotalBytes": 16384
+  },
+  "llm": {
+    "model": "gemini-2.5-flash",
+    "temperature": 0.3,
+    "maxOutputTokens": 2048,
+    "timeoutSeconds": 30,
+    "maxRetries": 2,
+    "maxConcurrentRequests": 2,
+    "apiKey": ""
+  },
+  "debug": {
+    "showOverlay": false,
+    "drawPaths": false,
+    "logLlmRequests": true,
+    "logLevel": "Info"
+  }
+}
