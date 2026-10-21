@@ -19,6 +19,7 @@ public partial class GameRoot : Node
     public IBlockRegistry BlockRegistry { get; private set; } = null!;
     public IVoxelWorld VoxelWorld { get; private set; } = null!;
     public ITerrainGenerator TerrainGenerator { get; private set; } = null!;
+    public IChunkMesher ChunkMesher { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -71,11 +72,13 @@ public partial class GameRoot : Node
 
         VoxelWorld = new VoxelWorld(BlockRegistry, EventBus);
         TerrainGenerator = new TerrainGenerator(config.World, BlockRegistry);
+        ChunkMesher = new ChunkMesher(BlockRegistry);
 
         GD.Print("started");
         Logger.LogInfo("GameRoot initialized successfully");
         Logger.LogInfo($"BlockRegistry loaded with {BlockRegistry.Count} block types");
         Logger.LogInfo($"TerrainGenerator initialized with seed {config.World.Seed}");
+        Logger.LogInfo("ChunkMesher initialized");
     }
 
     public override void _Process(double delta)

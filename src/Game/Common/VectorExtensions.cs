@@ -20,4 +20,8 @@ public static class VectorExtensions
 
     public static Vec3i ToCoreVec3i(this Vector3 v) =>
         new(Mathf.FloorToInt(v.X), Mathf.FloorToInt(v.Y), Mathf.FloorToInt(v.Z));
+
+    public static Vector2 ToGodot(this Vec2 v) => new(v.X, v.Y);
+
+    public static Vec2 ToCore(this Vector2 v) => new(v.X, v.Y);
 }
