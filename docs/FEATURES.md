@@ -63,7 +63,7 @@ flowchart LR
 | F-002 | Core library + test project + solution layout | M0 | F-001 | Done |
 | F-003 | Configuration system | M0 | F-002 | Done |
 | F-004 | Logging, EventBus, MainThreadDispatcher | M0 | F-002 | Done |
-| F-101 | Block registry & chunk data | M1 | F-002 | Todo |
+| F-101 | Block registry & chunk data | M1 | F-002 | Done |
 | F-102 | Terrain generation | M1 | F-101 | Todo |
 | F-103 | Chunk meshing (greedy, atlas) | M1 | F-102 | Todo |
 | F-104 | Chunk streaming & rendering in Godot | M1 | F-103 | Todo |

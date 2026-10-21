@@ -1,0 +1,166 @@
+{
+  "blocks": [
+    {
+      "id": "air",
+      "numericId": 0,
+      "solid": false,
+      "transparent": true,
+      "hardness": 0.0,
+      "drop": null,
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 0
+      }
+    },
+    {
+      "id": "grass",
+      "numericId": 1,
+      "solid": true,
+      "transparent": false,
+      "hardness": 0.6,
+      "drop": "dirt",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "top": 0,
+        "bottom": 2,
+        "sides": 1
+      }
+    },
+    {
+      "id": "dirt",
+      "numericId": 2,
+      "solid": true,
+      "transparent": false,
+      "hardness": 0.5,
+      "drop": "dirt",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 2
+      }
+    },
+    {
+      "id": "stone",
+      "numericId": 3,
+      "solid": true,
+      "transparent": false,
+      "hardness": 1.5,
+      "drop": "cobblestone",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 3
+      }
+    },
+    {
+      "id": "sand",
+      "numericId": 4,
+      "solid": true,
+      "transparent": false,
+      "hardness": 0.5,
+      "drop": "sand",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 4
+      }
+    },
+    {
+      "id": "water",
+      "numericId": 5,
+      "solid": false,
+      "transparent": true,
+      "hardness": 0.0,
+      "drop": null,
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 5
+      }
+    },
+    {
+      "id": "oak_log",
+      "numericId": 6,
+      "solid": true,
+      "transparent": false,
+      "hardness": 2.0,
+      "drop": "oak_log",
+      "isContainer": false,
+      "isIndexed": true,
+      "atlasIndices": {
+        "top": 6,
+        "bottom": 6,
+        "sides": 7
+      }
+    },
+    {
+      "id": "oak_leaves",
+      "numericId": 7,
+      "solid": true,
+      "transparent": true,
+      "hardness": 0.2,
+      "drop": null,
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 8
+      }
+    },
+    {
+      "id": "planks",
+      "numericId": 8,
+      "solid": true,
+      "transparent": false,
+      "hardness": 2.0,
+      "drop": "planks",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 9
+      }
+    },
+    {
+      "id": "cobblestone",
+      "numericId": 9,
+      "solid": true,
+      "transparent": false,
+      "hardness": 2.0,
+      "drop": "cobblestone",
+      "isContainer": false,
+      "isIndexed": false,
+      "atlasIndices": {
+        "all": 10
+      }
+    },
+    {
+      "id": "chest",
+      "numericId": 10,
+      "solid": true,
+      "transparent": false,
+      "hardness": 2.5,
+      "drop": "chest",
+      "isContainer": true,
+      "isIndexed": true,
+      "atlasIndices": {
+        "top": 11,
+        "bottom": 11,
+        "sides": 12
+      }
+    },
+    {
+      "id": "coal_ore",
+      "numericId": 11,
+      "solid": true,
+      "transparent": false,
+      "hardness": 3.0,
+      "drop": "coal_ore",
+      "isContainer": false,
+      "isIndexed": true,
+      "atlasIndices": {
+        "all": 13
+      }
+    }
+  ]
+}
