@@ -3,7 +3,7 @@
 > Work items for implementing agents. Each feature is sized to be done by one agent in one session.
 > Read [ARCHITECTURE.md](ARCHITECTURE.md) first. Respect the dependency column — do not start a
 > feature before its dependencies are **Done**. Update the status column when you start/finish.
->
+> Find Godot and dotnet dependencies in the readme
 > Status: `Todo` · `In progress (<agent/branch>)` · `Done` · `Blocked (<reason>)`
 
 ## Milestone overview
@@ -62,7 +62,7 @@ flowchart LR
 | F-001 | Convert project to Godot .NET / C# solution | M0 | – | Done |
 | F-002 | Core library + test project + solution layout | M0 | F-001 | Done |
 | F-003 | Configuration system | M0 | F-002 | Done |
-| F-004 | Logging, EventBus, MainThreadDispatcher | M0 | F-002 | Todo |
+| F-004 | Logging, EventBus, MainThreadDispatcher | M0 | F-002 | Done |
 | F-101 | Block registry & chunk data | M1 | F-002 | Todo |
 | F-102 | Terrain generation | M1 | F-101 | Todo |
 | F-103 | Chunk meshing (greedy, atlas) | M1 | F-102 | Todo |
