@@ -3,11 +3,15 @@ namespace VoxelKing.Game.Player;
 using System;
 using Godot;
 using VoxelKing.Core.Common;
+using VoxelKing.Core.Entities;
 using VoxelKing.Core.Voxel;
+using VoxelKing.Game.Common;
+using VoxelKing.Game.UI;
 
 /// <summary>
 /// First-person voxel player controller implementing mouse look, WASD movement, jumping, sprinting,
-/// debug fly-mode toggling, smooth 1-block step climbing, and surface spawning.
+/// debug fly-mode toggling, smooth 1-block step climbing, surface spawning, voxel raycasting,
+/// block breaking with hardness, block placing with collision checks, and chest interaction.
 /// </summary>
 public partial class PlayerController : CharacterBody3D
 {
@@ -26,15 +30,32 @@ public partial class PlayerController : CharacterBody3D
     [Export] public bool EnableStepAssist { get; set; } = true;
     [Export] public bool EnableStepSmoothing { get; set; } = true;
     [Export] public bool FreezeUntilGrounded { get; set; } = true;
+    [Export] public float ReachDistance { get; set; } = 5.0f;
 
     public bool IsFlying { get; set; } = false;
     public bool IsSprinting { get; private set; } = false;
     public bool IsGrounded { get; private set; } = false;
     public bool IsMouseCaptured { get; private set; } = false;
+    public bool IsInputLocked { get; set; } = false;
+
+    // Inventory & Hotbar (36 slots: 0..8 Hotbar, 9..35 Main)
+    public Inventory Inventory { get; } = new(36);
+    public int SelectedHotbarSlot { get; set; } = 0;
+    public float BreakProgress { get; private set; } = 0f;
+    public VoxelRaycastResult CurrentRaycast { get; private set; } = VoxelRaycastResult.Miss;
+
+    // External dependencies
+    public IVoxelWorld? VoxelWorld { get; set; }
+    public IBlockRegistry? BlockRegistry { get; set; }
+    public ContainerManager? ContainerManager { get; set; }
+    public NamedPlaces? NamedPlaces { get; set; }
+    public ChestUI? ChestUI { get; set; }
+    public HotbarUI? HotbarUI { get; set; }
 
     public Node3D Head { get; private set; } = null!;
     public Camera3D Camera { get; private set; } = null!;
     public CollisionShape3D CollisionShape { get; private set; } = null!;
+    public BlockHighlightNode HighlightNode { get; private set; } = null!;
 
     private float _pitch;
     private float _yaw;
@@ -42,6 +63,11 @@ public partial class PlayerController : CharacterBody3D
     private bool _wasOnFloor = false;
     private bool _hasGroundedOnce = false;
     private int _groundWaitTicks = 0;
+
+    // Mining tracking
+    private Vec3i? _currentlyMiningPos;
+    private float _miningTimer = 0f;
+    private bool _isMiningActionHeld = false;
 
     // Test simulation overrides (used when not null)
     public Vector2? SimulatedMoveInput { get; set; }
@@ -84,6 +110,8 @@ public partial class PlayerController : CharacterBody3D
         FloorSnapLength = FloorSnapLengthValue;
         UpDirection = Vector3.Up;
 
+        PopulateStartingInventory();
+
         // Capture mouse by default if not running in headless mode
         if (DisplayServer.GetName() != "headless")
         {
@@ -91,8 +119,20 @@ public partial class PlayerController : CharacterBody3D
         }
     }
 
+    private void PopulateStartingInventory()
+    {
+        if (!Inventory.IsEmpty) return;
+
+        // Populate initial blocks for player building and chest testing
+        Inventory.SetSlot(0, new ItemStack("dirt", 20));
+        Inventory.SetSlot(1, new ItemStack("cobblestone", 20));
+        Inventory.SetSlot(2, new ItemStack("oak_log", 10));
+        Inventory.SetSlot(3, new ItemStack("planks", 20));
+        Inventory.SetSlot(4, new ItemStack("chest", 4));
+    }
+
     /// <summary>
-    /// Ensures CollisionShape, Head, and Camera nodes are created and attached if not present in the scene.
+    /// Ensures CollisionShape, Head, Camera, and HighlightNode are created and attached.
     /// </summary>
     public void EnsureComponents()
     {
@@ -129,6 +169,14 @@ public partial class PlayerController : CharacterBody3D
         {
             Camera = new Camera3D { Name = "Camera3D" };
             Head.AddChild(Camera);
+        }
+
+        // 4. Block highlight node
+        HighlightNode = GetNodeOrNull<BlockHighlightNode>("BlockHighlight");
+        if (HighlightNode == null)
+        {
+            HighlightNode = new BlockHighlightNode { Name = "BlockHighlight" };
+            AddChild(HighlightNode);
         }
     }
 
@@ -187,8 +235,21 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (IsInputLocked)
+        {
+            return;
+        }
+
         if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
         {
+            // Number keys 1..9 select hotbar slots 0..8
+            if (keyEvent.Keycode >= Key.Key1 && keyEvent.Keycode <= Key.Key9)
+            {
+                SelectedHotbarSlot = (int)(keyEvent.Keycode - Key.Key1);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
             if (keyEvent.Keycode == Key.Escape)
             {
                 ToggleMouseCapture();
@@ -204,11 +265,45 @@ public partial class PlayerController : CharacterBody3D
             }
         }
 
-        if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
+        if (@event is InputEventMouseButton mouseButton)
         {
-            if (mouseButton.ButtonIndex == MouseButton.Left && Input.MouseMode != Input.MouseModeEnum.Captured)
+            // Mouse wheel cycles hotbar slot
+            if (mouseButton.Pressed && mouseButton.ButtonIndex == MouseButton.WheelUp)
             {
-                CaptureMouse();
+                SelectedHotbarSlot = (SelectedHotbarSlot + 8) % 9;
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (mouseButton.Pressed && mouseButton.ButtonIndex == MouseButton.WheelDown)
+            {
+                SelectedHotbarSlot = (SelectedHotbarSlot + 1) % 9;
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            // Left click mining
+            if (mouseButton.ButtonIndex == MouseButton.Left)
+            {
+                if (mouseButton.Pressed)
+                {
+                    if (!IsMouseCaptured)
+                    {
+                        CaptureMouse();
+                    }
+                    _isMiningActionHeld = true;
+                }
+                else
+                {
+                    _isMiningActionHeld = false;
+                }
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            // Right click place / interact
+            if (mouseButton.ButtonIndex == MouseButton.Right && mouseButton.Pressed)
+            {
+                TryPlaceOrInteract();
                 GetViewport().SetInputAsHandled();
                 return;
             }
@@ -232,10 +327,192 @@ public partial class PlayerController : CharacterBody3D
             _headYOffset = Mathf.MoveToward(_headYOffset, 0f, (float)delta * 14.0f);
             Head.Position = new Vector3(0, EyeHeight + _headYOffset, 0);
         }
+
+        // Perform raycast from camera view
+        PerformRaycast();
+
+        // Update block highlight visual
+        if (HighlightNode != null)
+        {
+            HighlightNode.UpdateHighlight(CurrentRaycast.IsHit, CurrentRaycast.BlockPos.ToGodotVector3(), BreakProgress);
+        }
+
+        // Process mining if held
+        if (!IsInputLocked && _isMiningActionHeld && CurrentRaycast.IsHit)
+        {
+            ProcessMining(CurrentRaycast, (float)delta);
+        }
+        else if (!_isMiningActionHeld || !CurrentRaycast.IsHit)
+        {
+            ResetMining();
+        }
+    }
+
+    private void PerformRaycast()
+    {
+        if (Camera == null || VoxelWorld == null || BlockRegistry == null)
+        {
+            CurrentRaycast = VoxelRaycastResult.Miss;
+            return;
+        }
+
+        ForceUpdateTransform();
+        Head?.ForceUpdateTransform();
+        Camera.ForceUpdateTransform();
+
+        Vec3 origin = Camera.GlobalPosition.ToCore();
+        Vec3 direction = (-Camera.GlobalTransform.Basis.Z).ToCore();
+
+        CurrentRaycast = VoxelRaycast.Cast(origin, direction, ReachDistance, VoxelWorld, BlockRegistry);
+    }
+
+    public void TriggerMiningAction(bool isHeld)
+    {
+        _isMiningActionHeld = isHeld;
+    }
+
+    private void ProcessMining(VoxelRaycastResult target, float dt)
+    {
+        if (VoxelWorld == null || BlockRegistry == null) return;
+
+        if (_currentlyMiningPos != target.BlockPos)
+        {
+            _currentlyMiningPos = target.BlockPos;
+            _miningTimer = 0f;
+            BreakProgress = 0f;
+        }
+
+        var def = BlockRegistry.GetDefinition(target.BlockId);
+        float hardness = Math.Max(0.1f, def.Hardness);
+
+        _miningTimer += dt;
+        BreakProgress = Mathf.Clamp(_miningTimer / hardness, 0f, 1f);
+
+        if (BreakProgress >= 1.0f)
+        {
+            CompleteMining(target, def);
+        }
+    }
+
+    public void CompleteMining(VoxelRaycastResult target, BlockDefinition def)
+    {
+        if (VoxelWorld == null || BlockRegistry == null) return;
+
+        // 1. Remove block from voxel world
+        VoxelWorld.SetBlock(target.BlockPos, BlockRegistry.AirId);
+
+        // 2. Handle container destruction
+        if (def.IsContainer && ContainerManager != null)
+        {
+            if (ContainerManager.RemoveContainer(target.BlockPos, out var container))
+            {
+                // Transfer remaining items in chest into player inventory
+                for (int s = 0; s < container.SlotCount; s++)
+                {
+                    var item = container.GetSlot(s);
+                    if (item != null && !item.IsEmpty)
+                    {
+                        Inventory.AddItem(item.ItemId, item.Count, out _);
+                    }
+                }
+            }
+
+            if (NamedPlaces != null && NamedPlaces.GetPlace("player_chest") == target.BlockPos)
+            {
+                NamedPlaces.RemovePlace("player_chest");
+            }
+        }
+
+        // 3. Drop item into player inventory
+        if (def.DropItem != null)
+        {
+            Inventory.AddItem(def.DropItem, 1, out _);
+        }
+
+        ResetMining();
+    }
+
+    private void ResetMining()
+    {
+        _currentlyMiningPos = null;
+        _miningTimer = 0f;
+        BreakProgress = 0f;
+    }
+
+    /// <summary>
+    /// Attempts to open a chest or place the selected hotbar block at the targeted raycast position.
+    /// </summary>
+    public bool TryPlaceOrInteract()
+    {
+        if (VoxelWorld == null || BlockRegistry == null || !CurrentRaycast.IsHit)
+        {
+            return false;
+        }
+
+        var targetDef = BlockRegistry.GetDefinition(CurrentRaycast.BlockId);
+
+        // 1. If clicking on a chest, open Chest UI
+        if (targetDef.IsContainer && ChestUI != null && ContainerManager != null)
+        {
+            var chestInv = ContainerManager.GetOrCreateContainer(CurrentRaycast.BlockPos, 27);
+            ChestUI.OpenChest(CurrentRaycast.BlockPos, chestInv);
+            return true;
+        }
+
+        // 2. Otherwise place block from active hotbar slot
+        var selectedItem = Inventory.GetSlot(SelectedHotbarSlot);
+        if (selectedItem == null || selectedItem.IsEmpty)
+        {
+            return false;
+        }
+
+        if (!BlockRegistry.TryGetId(selectedItem.ItemId, out ushort placeBlockId))
+        {
+            return false;
+        }
+
+        Vec3i placePos = CurrentRaycast.AdjacentPos;
+
+        // Check if target placement voxel is currently non-solid (air/water)
+        ushort currentBlock = VoxelWorld.GetBlock(placePos);
+        if (BlockRegistry.GetDefinition(currentBlock).IsSolid)
+        {
+            return false;
+        }
+
+        // Check entity collision (cannot place block inside player body)
+        Vec3 playerFeet = GlobalPosition.ToCore();
+        if (BlockPlacementHelper.IntersectsEntity(placePos, playerFeet, BodyRadius, BodyHeight))
+        {
+            return false;
+        }
+
+        // Place block
+        bool placed = VoxelWorld.SetBlock(placePos, placeBlockId);
+        if (placed)
+        {
+            Inventory.RemoveAt(SelectedHotbarSlot, 1);
+
+            // If placed block is chest, register in ContainerManager
+            var placedDef = BlockRegistry.GetDefinition(placeBlockId);
+            if (placedDef.IsContainer && ContainerManager != null)
+            {
+                ContainerManager.GetOrCreateContainer(placePos, 27);
+            }
+            return true;
+        }
+
+        return false;
     }
 
     public override void _PhysicsProcess(double delta)
     {
+        if (IsInputLocked)
+        {
+            Velocity = Vector3.Zero;
+            return;
+        }
+
         float dt = (float)delta;
         IsGrounded = IsOnFloor();
 
@@ -366,7 +643,7 @@ public partial class PlayerController : CharacterBody3D
             actualUp = upCol.GetTravel().Y;
             if (actualUp < 0.4f)
             {
-                return; // ceiling too low to step up
+                return;
             }
         }
 
@@ -378,7 +655,7 @@ public partial class PlayerController : CharacterBody3D
 
         if (actualForward.LengthSquared() < 0.0001f)
         {
-            return; // blocked forward (e.g. wall higher than step height)
+            return;
         }
 
         // Test 3: Cast downward to detect step floor surface

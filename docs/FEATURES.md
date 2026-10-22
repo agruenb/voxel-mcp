@@ -70,7 +70,7 @@ flowchart LR
 | F-105 | Chunk collision | M1 | F-104 | Done |
 | F-106 | Per-chunk block-type index | M1 | F-102 | Done |
 | F-107 | First-person player controller | M1 | F-105 | Done |
-| F-108 | Player block interaction & inventory | M1 | F-107 | Todo |
+| F-108 | Player block interaction & inventory | M1 | F-107 | Done |
 | F-201 | Entity registry, NPC state & NpcManager | M2 | F-101 | Todo |
 | F-202 | NPC node, visuals & kinematic movement | M2 | F-201, F-104 | Todo |
 | F-203 | Voxel pathfinding & path following | M2 | F-202, F-204 | Todo |

@@ -3,13 +3,17 @@ namespace VoxelKing.Game.Player;
 using System;
 using Godot;
 using VoxelKing.Core.Common;
+using VoxelKing.Core.Entities;
 using VoxelKing.Core.Voxel;
+using VoxelKing.Game.UI;
 using VoxelKing.Game.World;
 
 /// <summary>
 /// Headless automated integration test validating the first-person player controller:
 /// surface spawning, WASD movement, smooth 1-block step climbing, 2-block wall blocking,
-/// jumping, fly mode toggle, and mouse capture toggling.
+/// jumping, fly mode toggle, mouse capture toggling, DDA voxel raycast targeting,
+/// block breaking with hardness, item drop into inventory, block placement,
+/// container opening, chest item storage, and "player_chest" place marking.
 /// </summary>
 public partial class TestPlayerRunner : Node3D
 {
@@ -19,16 +23,26 @@ public partial class TestPlayerRunner : Node3D
     private BlockRegistry _registry = null!;
     private ChunkMaterials _materials = null!;
     private ChunkData _chunkData = null!;
+    private VoxelWorld _world = null!;
+    private HotbarUI _hotbarUI = null!;
+    private ChestUI _chestUI = null!;
 
     private int _physicsFrame = 0;
     private int _testPhase = 0;
     private float _initialJumpY = 0f;
+    private int _cobblestoneBeforeMine = 0;
+    private Vec3i _minedBlockPos;
+    private Vec3i _placedBlockPos;
+    private Vec3i _placedChestPos;
 
     public override void _Ready()
     {
         _registry = BlockRegistry.CreateDefault();
         _mesher = new ChunkMesher(_registry);
         _materials = new ChunkMaterials();
+
+        var eventBus = new EventBus();
+        _world = new VoxelWorld(_registry, eventBus);
 
         // Build test terrain in chunk (0, 0, 0):
         // 1. Base floor at y=0 from x: 0..25, z: 0..10
@@ -61,18 +75,35 @@ public partial class TestPlayerRunner : Node3D
             }
         }
 
+        _world.AddOrUpdateChunk(_chunkData);
+
         // Mesh and add chunk
         _chunkNode = new ChunkNode(Vec3i.Zero);
         AddChild(_chunkNode);
         RebuildMesh();
 
-        // Create player controller
+        // Create and wire player controller
         _player = new PlayerController { Name = "TestPlayer" };
-        _player.FreezeUntilGrounded = false; // direct testing
+        _player.FreezeUntilGrounded = false;
         _player.Position = new Vector3(2.0f, 1.05f, 5.0f); // just above base floor at y=0 (surface top = 1.0)
+        _player.VoxelWorld = _world;
+        _player.BlockRegistry = _registry;
+        _player.ContainerManager = new ContainerManager();
+        _player.NamedPlaces = new NamedPlaces();
+
+        _hotbarUI = new HotbarUI { Name = "HotbarUI" };
+        AddChild(_hotbarUI);
+        _hotbarUI.BindPlayer(_player);
+        _player.HotbarUI = _hotbarUI;
+
+        _chestUI = new ChestUI { Name = "ChestUI" };
+        AddChild(_chestUI);
+        _chestUI.Setup(_player, _player.NamedPlaces, _hotbarUI);
+        _player.ChestUI = _chestUI;
+
         AddChild(_player);
 
-        GD.Print("[TestPlayer] Starting PlayerController physics tests...");
+        GD.Print("[TestPlayer] Starting PlayerController physics and interaction tests...");
     }
 
     private void RebuildMesh()
@@ -112,7 +143,6 @@ public partial class TestPlayerRunner : Node3D
 
             case 1:
                 // Phase 1: Walk forward towards the 1-block step at X=6
-                // Player moves from X=2 towards X=6 at Y=1.0
                 if (_player.Position.X >= 5.5f)
                 {
                     GD.Print($"[PASS] Phase 1: Approached step at X={_player.Position.X:F2}. Entering step climb test.");
@@ -184,7 +214,7 @@ public partial class TestPlayerRunner : Node3D
                     _player.ToggleFly();
                     AssertTrue(_player.IsFlying, "Player should be flying after ToggleFly()");
                     _initialJumpY = _player.Position.Y;
-                    _player.SimulatedJump = true; // in fly mode, jump moves +Y
+                    _player.SimulatedJump = true;
                 }
                 else if (_physicsFrame >= 15)
                 {
@@ -210,21 +240,141 @@ public partial class TestPlayerRunner : Node3D
                 AssertTrue(_player.IsMouseCaptured, "IsMouseCaptured should be true after toggle");
                 GD.Print("[PASS] Phase 6: Mouse capture toggling verified.");
 
+                // Settle player on ground at X=14.0, Y=2.0, Z=5.0 facing wall at X=16
+                _player.Position = new Vector3(14.0f, 2.05f, 5.0f);
+                _player.Velocity = Vector3.Zero;
+
                 _testPhase = 7;
+                _physicsFrame = 0;
                 break;
 
             case 7:
-                GD.Print("[PASS] ALL PLAYER CONTROLLER INTEGRATION TESTS PASSED SUCCESSFULLY!");
+                // Phase 7: Raycast targeting verification
+                // Player stands at X=14.0 facing +X at wall at X=16.
+                _player.Rotation = new Vector3(0, -Mathf.Pi * 0.5f, 0); // Face +X
+                _player.Head.Rotation = Vector3.Zero; // Look straight ahead
+
+                // Call _Process on player to update raycast
+                _player._Process(0.016);
+
+                AssertTrue(_player.CurrentRaycast.IsHit, "Player raycast should hit the wall in front of them");
+                AssertTrue(_player.CurrentRaycast.BlockPos.X == 16,
+                    $"Raycast should hit wall at X=16, hit {_player.CurrentRaycast.BlockPos}");
+                AssertTrue(_player.HighlightNode.Visible, "Highlight node should be visible when targeting block");
+
+                GD.Print($"[PASS] Phase 7: Raycast targeted block at {_player.CurrentRaycast.BlockPos}.");
+                _testPhase = 8;
+                _physicsFrame = 0;
+                _minedBlockPos = _player.CurrentRaycast.BlockPos;
+                _cobblestoneBeforeMine = _player.Inventory.CountItem("cobblestone");
+                _player.TriggerMiningAction(true);
+                break;
+
+            case 8:
+                // Phase 8: Block breaking with hardness
+                // Stone hardness is 1.5s (90 ticks). Mining action is held.
+                _player._Process(0.0166);
+
+                if (_world.GetBlock(_minedBlockPos) == _registry.AirId)
+                {
+                    _player.TriggerMiningAction(false);
+                    int cobblestoneAfter = _player.Inventory.CountItem("cobblestone");
+                    AssertTrue(cobblestoneAfter > _cobblestoneBeforeMine,
+                        "Mining stone should drop cobblestone into player inventory");
+                    GD.Print($"[PASS] Phase 8: Successfully broke stone block with hardness! Cobblestone in inventory: {cobblestoneAfter}.");
+
+                    _testPhase = 9;
+                    _physicsFrame = 0;
+                }
+                else if (_physicsFrame > 150)
+                {
+                    Fail($"Mining block at {_minedBlockPos} timed out after 150 frames. Progress: {_player.BreakProgress:F2}");
+                }
+                break;
+
+            case 9:
+                // Phase 9: Block placement (RMB place)
+                // Look down slightly towards the floor at feet in front
+                _player.Head.Rotation = new Vector3(-Mathf.DegToRad(30f), 0, 0);
+                _player._Process(0.0166);
+
+                AssertTrue(_player.CurrentRaycast.IsHit, "Should hit floor in front");
+                _placedBlockPos = _player.CurrentRaycast.AdjacentPos;
+
+                int dirtBefore = _player.Inventory.CountItem("dirt");
+                AssertTrue(dirtBefore > 0, "Player should have dirt in inventory");
+
+                _player.SelectedHotbarSlot = 0; // Dirt slot
+                bool placed = _player.TryPlaceOrInteract();
+                AssertTrue(placed, $"Failed to place dirt block at {_placedBlockPos}");
+
+                ushort placedBlockId = _world.GetBlock(_placedBlockPos);
+                AssertTrue(placedBlockId == _registry.GetId("dirt"),
+                    $"VoxelWorld should contain dirt at {_placedBlockPos}, found {placedBlockId}");
+
+                int dirtAfter = _player.Inventory.CountItem("dirt");
+                AssertTrue(dirtAfter == dirtBefore - 1,
+                    $"Dirt count should decrement by 1 (was {dirtBefore}, now {dirtAfter})");
+
+                GD.Print($"[PASS] Phase 9: Successfully placed dirt block at {_placedBlockPos}.");
+                _testPhase = 10;
+                _physicsFrame = 0;
+                break;
+
+            case 10:
+                // Phase 10: Chest placement, opening, item storage, and marking player_chest
+                _player.SelectedHotbarSlot = 4; // Chest slot
+                _player._Process(0.0166);
+
+                _placedChestPos = _player.CurrentRaycast.AdjacentPos;
+                bool chestPlaced = _player.TryPlaceOrInteract();
+                AssertTrue(chestPlaced, $"Failed to place chest at {_placedChestPos}");
+                AssertTrue(_world.GetBlock(_placedChestPos) == _registry.GetId("chest"), "Block should be chest");
+                AssertTrue(_player.ContainerManager != null && _player.ContainerManager.HasContainer(_placedChestPos),
+                    "ContainerManager should track the placed chest container");
+
+                // Target the placed chest
+                _player._Process(0.0166);
+                AssertTrue(_player.CurrentRaycast.IsHit && _player.CurrentRaycast.BlockPos == _placedChestPos,
+                    $"Raycast should now target chest at {_placedChestPos}");
+
+                // Interact with chest -> Opens ChestUI
+                bool chestOpened = _player.TryPlaceOrInteract();
+                AssertTrue(chestOpened, "Interacting with chest should succeed");
+                AssertTrue(_player.ChestUI != null && _player.ChestUI.IsOpen, "ChestUI should be open");
+
+                // Verify chest container storage
+                var chestInv = _player.ContainerManager!.GetOrCreateContainer(_placedChestPos);
+                int transferred = Inventory.Transfer(_player.Inventory, 0, chestInv, 5);
+                AssertTrue(transferred == 5, $"Should transfer 5 dirt into chest, transferred {transferred}");
+                AssertTrue(chestInv.CountItem("dirt") == 5, "Chest container should now store 5 dirt");
+
+                // Mark chest as player_chest
+                _player.NamedPlaces!.SetPlace("player_chest", _placedChestPos);
+                AssertTrue(_player.NamedPlaces!.GetPlace("player_chest") == _placedChestPos,
+                    "NamedPlaces should store player_chest location");
+
+                // Close chest UI
+                _player.ChestUI!.CloseChest();
+                AssertTrue(!_player.ChestUI.IsOpen, "ChestUI should be closed");
+
+                GD.Print($"[PASS] Phase 10: Chest placed, opened, stored 5 items, and marked as player_chest at {_placedChestPos}!");
+                _testPhase = 11;
+                break;
+
+            case 11:
+                GD.Print("[PASS] ALL PLAYER CONTROLLER & INTERACTION INTEGRATION TESTS PASSED SUCCESSFULLY!");
                 GetTree().Quit(0);
                 break;
         }
     }
 
-    private static void AssertTrue(bool condition, string message)
+    private void AssertTrue(bool condition, string message)
     {
         if (!condition)
         {
             GD.PrintErr($"Assertion Failed: {message}");
+            GetTree().Quit(1);
             throw new InvalidOperationException(message);
         }
     }

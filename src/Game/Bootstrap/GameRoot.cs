@@ -4,9 +4,11 @@ using System;
 using System.IO;
 using Godot;
 using VoxelKing.Core.Common;
+using VoxelKing.Core.Entities;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Player;
+using VoxelKing.Game.UI;
 using VoxelKing.Game.World;
 
 public partial class GameRoot : Node
@@ -23,6 +25,10 @@ public partial class GameRoot : Node
     public ITerrainGenerator TerrainGenerator { get; private set; } = null!;
     public IChunkMesher ChunkMesher { get; private set; } = null!;
     public ChunkStreamer ChunkStreamer { get; private set; } = null!;
+    public ContainerManager ContainerManager { get; private set; } = new();
+    public NamedPlaces NamedPlaces { get; private set; } = new();
+    public HotbarUI? HotbarUI { get; private set; }
+    public ChestUI? ChestUI { get; private set; }
 
     public override void _Ready()
     {
@@ -86,6 +92,21 @@ public partial class GameRoot : Node
         var player = GetNodeOrNull<PlayerController>("Player");
         if (player != null)
         {
+            player.VoxelWorld = VoxelWorld;
+            player.BlockRegistry = BlockRegistry;
+            player.ContainerManager = ContainerManager;
+            player.NamedPlaces = NamedPlaces;
+
+            HotbarUI = new HotbarUI { Name = "HotbarUI" };
+            AddChild(HotbarUI);
+            HotbarUI.BindPlayer(player);
+            player.HotbarUI = HotbarUI;
+
+            ChestUI = new ChestUI { Name = "ChestUI" };
+            AddChild(ChestUI);
+            ChestUI.Setup(player, NamedPlaces, HotbarUI);
+            player.ChestUI = ChestUI;
+
             player.ApplyConfig(config.Player);
             player.SpawnOnSurface(TerrainGenerator, 0, 0, VoxelWorld);
             ChunkStreamer.FocusNode = player;
