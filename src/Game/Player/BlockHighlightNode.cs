@@ -12,6 +12,8 @@ public partial class BlockHighlightNode : Node3D
 
     public override void _Ready()
     {
+        TopLevel = true;
+
         _material = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -42,12 +44,14 @@ public partial class BlockHighlightNode : Node3D
         }
 
         Visible = true;
-        // Position at center of targeted voxel block
-        GlobalPosition = new Vector3(
+
+        // Position at center of targeted voxel block, strictly aligned to world block grid (Basis.Identity)
+        var center = new Vector3(
             Mathf.Floor(blockPos.X) + 0.5f,
             Mathf.Floor(blockPos.Y) + 0.5f,
             Mathf.Floor(blockPos.Z) + 0.5f
         );
+        GlobalTransform = new Transform3D(Basis.Identity, center);
 
         // Progress color tint: transitions from dark gray to bright yellow/red as break progress increases
         if (breakProgress > 0.01f)
