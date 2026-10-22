@@ -69,7 +69,7 @@ flowchart LR
 | F-104 | Chunk streaming & rendering in Godot | M1 | F-103 | Done |
 | F-105 | Chunk collision | M1 | F-104 | Done |
 | F-106 | Per-chunk block-type index | M1 | F-102 | Done |
-| F-107 | First-person player controller | M1 | F-105 | Todo |
+| F-107 | First-person player controller | M1 | F-105 | Done |
 | F-108 | Player block interaction & inventory | M1 | F-107 | Todo |
 | F-201 | Entity registry, NPC state & NpcManager | M2 | F-101 | Todo |
 | F-202 | NPC node, visuals & kinematic movement | M2 | F-201, F-104 | Todo |

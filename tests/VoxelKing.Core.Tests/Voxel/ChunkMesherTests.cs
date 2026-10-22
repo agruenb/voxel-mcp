@@ -65,6 +65,31 @@ public class ChunkMesherTests
     }
 
     [Fact]
+    public void AllTriangles_AreClockwiseFromOutside_ForGodotFrontFaces()
+    {
+        // Godot 4: front face = clockwise as seen by the camera. With a right-handed cross
+        // product, a clockwise triangle seen from outside has (b-a)x(c-a) pointing INTO the block,
+        // i.e. opposite to the outward vertex normal.
+        var chunk = new ChunkData(Vec3i.Zero);
+        chunk.SetBlock(5, 5, 5, _registry.GetId("stone"));
+        var m = _mesher.Mesh(new ChunkMeshSnapshot(chunk)).Opaque;
+
+        Assert.Equal(12, m.Indices.Length / 3);
+        for (int t = 0; t < m.Indices.Length; t += 3)
+        {
+            Vec3 a = m.Vertices[m.Indices[t]];
+            Vec3 b = m.Vertices[m.Indices[t + 1]];
+            Vec3 c = m.Vertices[m.Indices[t + 2]];
+            Vec3 e1 = new(b.X - a.X, b.Y - a.Y, b.Z - a.Z);
+            Vec3 e2 = new(c.X - a.X, c.Y - a.Y, c.Z - a.Z);
+            Vec3 cross = new(e1.Y * e2.Z - e1.Z * e2.Y, e1.Z * e2.X - e1.X * e2.Z, e1.X * e2.Y - e1.Y * e2.X);
+            Vec3 n = m.Normals[m.Indices[t]];
+            float dot = cross.X * n.X + cross.Y * n.Y + cross.Z * n.Z;
+            Assert.True(dot < 0f, $"Triangle {t / 3} with normal {n} is CCW from outside and will be culled by Godot.");
+        }
+    }
+
+    [Fact]
     public void GreedyMeshing_2x2x2Cube_MergesIntoSixFaces()
     {
         var chunk = new ChunkData(Vec3i.Zero);

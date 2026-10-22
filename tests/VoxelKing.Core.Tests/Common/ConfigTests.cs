@@ -52,6 +52,21 @@ public class ConfigTests
         Assert.False(config.Debug.DrawPaths);
         Assert.True(config.Debug.LogLlmRequests);
         Assert.Equal("Info", config.Debug.LogLevel);
+
+        Assert.NotNull(config.Player);
+        Assert.Equal(5.0f, config.Player.WalkSpeed);
+        Assert.Equal(8.5f, config.Player.SprintSpeed);
+        Assert.Equal(7.5f, config.Player.JumpVelocity);
+        Assert.Equal(20.0f, config.Player.Gravity);
+        Assert.Equal(15.0f, config.Player.FlySpeed);
+        Assert.Equal(2.0f, config.Player.SprintFlyMultiplier);
+        Assert.Equal(0.003f, config.Player.MouseSensitivity);
+        Assert.Equal(1.1f, config.Player.MaxStepHeight);
+        Assert.Equal(1.6f, config.Player.EyeHeight);
+        Assert.Equal(0.35f, config.Player.BodyRadius);
+        Assert.Equal(1.8f, config.Player.BodyHeight);
+        Assert.True(config.Player.EnableStepAssist);
+        Assert.True(config.Player.EnableStepSmoothing);
     }
 
     [Fact]
@@ -300,6 +315,35 @@ public class ConfigTests
         Assert.Equal(original.World.LoadedChunkRadius, restored.World.LoadedChunkRadius);
         Assert.Equal(original.Llm.Model, restored.Llm.Model);
         Assert.Equal(original.Llm.Temperature, restored.Llm.Temperature);
+    }
+
+    [Fact]
+    public void Load_WithPlayerJson_OverridesPlayerDefaults()
+    {
+        const string json = """
+        {
+          "player": {
+            "walkSpeed": 6.5,
+            "sprintSpeed": 11.0,
+            "jumpVelocity": 8.0,
+            "maxStepHeight": 1.25,
+            "enableStepAssist": false
+          }
+        }
+        """;
+
+        var config = GameConfigLoader.Load(baseJson: json);
+
+        Assert.Equal(6.5f, config.Player.WalkSpeed);
+        Assert.Equal(11.0f, config.Player.SprintSpeed);
+        Assert.Equal(8.0f, config.Player.JumpVelocity);
+        Assert.Equal(1.25f, config.Player.MaxStepHeight);
+        Assert.False(config.Player.EnableStepAssist);
+
+        // Verify unmentioned properties retain defaults
+        Assert.Equal(20.0f, config.Player.Gravity);
+        Assert.Equal(15.0f, config.Player.FlySpeed);
+        Assert.True(config.Player.EnableStepSmoothing);
     }
 
     [Fact]

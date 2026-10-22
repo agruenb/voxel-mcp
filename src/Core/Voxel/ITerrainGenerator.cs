@@ -31,4 +31,9 @@ public interface ITerrainGenerator
     /// Populates an existing ChunkData instance with generated terrain.
     /// </summary>
     void PopulateChunk(ChunkData chunk);
+
+    /// <summary>
+    /// Checks if a procedural tree trunk exists at the specified world X and Z coordinates.
+    /// </summary>
+    bool HasTreeTrunk(int worldX, int worldZ);
 }

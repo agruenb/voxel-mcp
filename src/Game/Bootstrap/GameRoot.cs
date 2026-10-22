@@ -6,6 +6,7 @@ using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
+using VoxelKing.Game.Player;
 using VoxelKing.Game.World;
 
 public partial class GameRoot : Node
@@ -82,10 +83,21 @@ public partial class GameRoot : Node
             AddChild(ChunkStreamer);
         }
 
-        var camera = GetNodeOrNull<Camera3D>("Camera3D");
-        if (camera != null)
+        var player = GetNodeOrNull<PlayerController>("Player");
+        if (player != null)
         {
-            ChunkStreamer.FocusNode = camera;
+            player.ApplyConfig(config.Player);
+            player.SpawnOnSurface(TerrainGenerator, 0, 0, VoxelWorld);
+            ChunkStreamer.FocusNode = player;
+            Logger.LogInfo($"Player initialized and spawned at {player.GlobalPosition}");
+        }
+        else
+        {
+            var camera = GetNodeOrNull<Camera3D>("Camera3D");
+            if (camera != null)
+            {
+                ChunkStreamer.FocusNode = camera;
+            }
         }
 
         ChunkStreamer.Initialize(

@@ -38,5 +38,20 @@
     "drawPaths": false,
     "logLlmRequests": true,
     "logLevel": "Info"
+  },
+  "player": {
+    "walkSpeed": 5.0,
+    "sprintSpeed": 8.5,
+    "jumpVelocity": 7.5,
+    "gravity": 20.0,
+    "flySpeed": 15.0,
+    "sprintFlyMultiplier": 2.0,
+    "mouseSensitivity": 0.003,
+    "maxStepHeight": 1.1,
+    "eyeHeight": 1.6,
+    "bodyRadius": 0.35,
+    "bodyHeight": 1.8,
+    "enableStepAssist": true,
+    "enableStepSmoothing": true
   }
 }

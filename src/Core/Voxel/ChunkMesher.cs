@@ -69,13 +69,15 @@ public sealed class ChunkMesher : IChunkMesher
             UVs.Add(uv2);
             UVs.Add(uv3);
 
-            // CCW triangles: (0, 1, 2) and (0, 2, 3)
+            // Quad corners v0..v3 are laid out CCW when viewed from outside (along +normal).
+            // Godot 4 treats CLOCKWISE triangles as front faces, so emit (0, 2, 1) and (0, 3, 2).
+            // See docs/RENDER_AUDIT.md.
             Indices.Add(baseIndex + 0);
+            Indices.Add(baseIndex + 2);
             Indices.Add(baseIndex + 1);
-            Indices.Add(baseIndex + 2);
             Indices.Add(baseIndex + 0);
-            Indices.Add(baseIndex + 2);
             Indices.Add(baseIndex + 3);
+            Indices.Add(baseIndex + 2);
         }
 
         public MeshData ToMeshData()

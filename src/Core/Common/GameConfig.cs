@@ -10,6 +10,7 @@ public sealed record GameConfig : IGameConfig
     public BrainLimitsConfig BrainLimits { get; set; } = new();
     public LlmConfig Llm { get; set; } = new();
     public DebugConfig Debug { get; set; } = new();
+    public PlayerConfig Player { get; set; } = new();
 }
 
 /// <summary>

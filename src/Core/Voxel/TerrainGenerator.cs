@@ -246,6 +246,35 @@ public sealed class TerrainGenerator : ITerrainGenerator
         }
     }
 
+    /// <summary>
+    /// Checks if a procedural tree trunk exists at the specified world X and Z coordinates.
+    /// </summary>
+    public bool HasTreeTrunk(int worldX, int worldZ)
+    {
+        int cx = worldX >> 3;
+        int cz = worldZ >> 3;
+
+        uint hash = HashCell(cx, cz, Seed ^ 0x5EED);
+        if ((hash % 3) != 0)
+        {
+            return false;
+        }
+
+        int offsetX = (int)((hash >> 3) & 7);
+        int offsetZ = (int)((hash >> 6) & 7);
+
+        int treeX = (cx << 3) + offsetX;
+        int treeZ = (cz << 3) + offsetZ;
+
+        if (worldX != treeX || worldZ != treeZ)
+        {
+            return false;
+        }
+
+        int treeBaseY = GetHeight(treeX, treeZ);
+        return treeBaseY > _config.WaterLevel + 1;
+    }
+
     private void PlaceTree(ChunkData chunk, int chunkMinX, int chunkMinY, int chunkMinZ, int treeX, int treeBaseY, int treeZ, int trunkHeight)
     {
         int topY = treeBaseY + trunkHeight;

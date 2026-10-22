@@ -10,4 +10,5 @@ public interface IGameConfig
     BrainLimitsConfig BrainLimits { get; }
     LlmConfig Llm { get; }
     DebugConfig Debug { get; }
+    PlayerConfig Player { get; }
 }

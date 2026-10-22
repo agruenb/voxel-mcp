@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/Game/Bootstrap/GameRoot.cs" id="1_gameroot"]
-[ext_resource type="Script" path="res://src/Game/World/FreeFlyCamera.cs" id="2_freecam"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.384314, 0.603922, 0.854902, 1)
@@ -30,6 +30,4 @@ environment = SubResource("Environment_main")
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 100, 0)
 shadow_enabled = true
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, 80, 0)
-script = ExtResource("2_freecam")
+[node name="Player" parent="." instance=ExtResource("2_player")]
