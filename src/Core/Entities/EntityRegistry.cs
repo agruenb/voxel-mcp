@@ -44,7 +44,14 @@ public sealed class EntityRegistry
     /// </summary>
     public EntityId GenerateNextId()
     {
-        return new EntityId(Interlocked.Increment(ref _nextId));
+        while (true)
+        {
+            var id = new EntityId(Interlocked.Increment(ref _nextId));
+            if (!_entitiesById.ContainsKey(id))
+            {
+                return id;
+            }
+        }
     }
 
     /// <summary>

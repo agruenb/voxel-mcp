@@ -1,8 +1,11 @@
 namespace VoxelKing.Core.Npc;
 
 using System;
+using System.Collections.Generic;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Navigation;
+using VoxelKing.Core.Npc.Actions;
 
 /// <summary>
 /// Authoritative simulation state for an individual NPC in the world.
@@ -59,6 +62,26 @@ public sealed class NpcState : IEntity
     /// Upward velocity impulse applied when jumping.
     /// </summary>
     public float JumpVelocity { get; set; } = 7.5f;
+
+    /// <summary>
+    /// Active primary action currently being executed by this NPC, or null if idle.
+    /// </summary>
+    public IAction? CurrentAction { get; set; }
+
+    /// <summary>
+    /// Active path follower controlling navigation for this NPC, or null if idle.
+    /// </summary>
+    public IPathFollower? PathFollower { get; set; }
+
+    /// <summary>
+    /// Gets the remaining path waypoints being navigated, or null if no active path.
+    /// </summary>
+    public IReadOnlyList<Vec3i>? ActivePath => PathFollower?.RemainingWaypoints;
+
+    /// <summary>
+    /// Simulation timestamp when this NPC last executed a speech action, used for rate limiting.
+    /// </summary>
+    public float LastSayTime { get; set; } = -100.0f;
 
     /// <summary>
     /// Entity ID of the instructor who assigned the current task, or null.

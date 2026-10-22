@@ -5,7 +5,9 @@ using System.Linq;
 using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
+using VoxelKing.Core.Npc.Actions;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Player;
 
@@ -22,6 +24,8 @@ public partial class DebugConsole : CanvasLayer
     public NpcManager NpcManager { get; set; } = null!;
     public IVoxelWorld VoxelWorld { get; set; } = null!;
     public PlayerController? Player { get; set; }
+    public IPathfindingService? PathfindingService { get; set; }
+    public DebugPathRenderer? PathRenderer { get; set; }
 
     public bool IsOpen => _isOpen;
 
@@ -110,6 +114,44 @@ public partial class DebugConsole : CanvasLayer
             {
                 StopNpc(nearest.Id);
                 Log($"[Quick-Stop] Stopped NPC '{nearest.Name}'");
+            }
+            GetViewport().SetInputAsHandled();
+        }
+        // F8: Navigate nearest NPC to player targeted block or player position
+        else if (keyEvent.Keycode == Key.F8)
+        {
+            var nearest = FindNearestNpc();
+            if (nearest != null)
+            {
+                Vec3i goalCell;
+                if (Player != null && Player.CurrentRaycast.IsHit)
+                {
+                    goalCell = Player.CurrentRaycast.AdjacentPos;
+                }
+                else if (Player != null)
+                {
+                    goalCell = new Vec3i(
+                        (int)MathF.Floor(Player.GlobalPosition.X),
+                        (int)MathF.Round(Player.GlobalPosition.Y),
+                        (int)MathF.Floor(Player.GlobalPosition.Z));
+                }
+                else
+                {
+                    goalCell = new Vec3i(0, 65, 0);
+                }
+
+                if (NavigateNpc(nearest.Id, goalCell, out var result))
+                {
+                    Log($"[Quick-Nav] Navigating '{nearest.Name}' to {goalCell}. Waypoints: {result.Waypoints.Count} ({result.Status})");
+                }
+                else
+                {
+                    Log($"[Quick-Nav] Failed to find path for '{nearest.Name}' to {goalCell}: {result.FailureReason}");
+                }
+            }
+            else
+            {
+                Log("[Quick-Nav] No active NPCs found to navigate.");
             }
             GetViewport().SetInputAsHandled();
         }
@@ -204,9 +246,59 @@ public partial class DebugConsole : CanvasLayer
     {
         if (NpcManager.Registry.TryGet<NpcState>(id, out var npc))
         {
+            npc.PathFollower?.Stop();
             npc.Velocity = new Vec3(0f, npc.Velocity.Y, 0f);
             return true;
         }
+        return false;
+    }
+
+    public bool NavigateNpc(EntityId id, Vec3i targetCell, out PathResult result)
+    {
+        if (!NpcManager.Registry.TryGet<NpcState>(id, out var npc))
+        {
+            result = PathResult.Failed(PathFailureReason.NoPathFound);
+            return false;
+        }
+
+        var startCell = new Vec3i(
+            (int)MathF.Floor(npc.Position.X),
+            (int)MathF.Round(npc.Position.Y),
+            (int)MathF.Floor(npc.Position.Z));
+
+        // If start cell is not walkable, try adjacent/surface
+        if (!Walkability.IsWalkable(VoxelWorld, startCell))
+        {
+            var surface = Walkability.Surface(VoxelWorld, startCell.X, startCell.Z, startCell.Y + 2, startCell.Y - 2);
+            if (surface.HasValue)
+            {
+                startCell = surface.Value;
+            }
+        }
+
+        // If target cell is not walkable, try surface column
+        var goalCell = targetCell;
+        if (!Walkability.IsWalkable(VoxelWorld, goalCell))
+        {
+            var surface = Walkability.Surface(VoxelWorld, goalCell.X, goalCell.Z, goalCell.Y + 3, goalCell.Y - 3);
+            if (surface.HasValue)
+            {
+                goalCell = surface.Value;
+            }
+        }
+
+        var service = PathfindingService ?? new PathfindingService(VoxelWorld);
+        result = service.FindPath(startCell, goalCell);
+
+        if (result.HasPath)
+        {
+            npc.PathFollower?.Dispose();
+            var follower = new PathFollower(npc, VoxelWorld, NpcManager.EventBus);
+            follower.FollowPath(result.Waypoints, goalCell);
+            npc.PathFollower = follower;
+            return true;
+        }
+
         return false;
     }
 
@@ -239,8 +331,14 @@ public partial class DebugConsole : CanvasLayer
                 Log("  move_npc <id|name> <vx> <vz> - Move an NPC with velocity");
                 Log("  jump_npc <id|name>        - Make an NPC jump");
                 Log("  stop_npc <id|name>        - Stop an NPC");
+                Log("  nav_to <id|name> [x y z]  - Navigate an NPC to coordinates or target block");
+                Log("  mine_npc <id|name> [x y z]- Mine block at coordinates");
+                Log("  place_npc <id|name> <blk> [x y z] - Place block from NPC inventory");
+                Log("  say_npc <id|name> <text>  - Make NPC speak");
+                Log("  wait_npc <id|name> <secs> - Make NPC wait");
+                Log("  cancel_npc <id|name>      - Cancel active action on NPC");
                 Log("  list_npcs                 - List all active NPCs");
-                Log("Hotkeys: F4=Spawn, F5=Move, F6=Jump, F7=Stop");
+                Log("Hotkeys: F4=Spawn, F5=Move, F6=Jump, F7=Stop, F8=NavToLook");
                 break;
 
             case "spawn_npc":
@@ -330,7 +428,233 @@ public partial class DebugConsole : CanvasLayer
                 Log($"Active NPCs ({list.Count}):");
                 foreach (var npc in list)
                 {
-                    Log($"  ID {npc.Id}: '{npc.Name}' at {npc.Position} (Grounded={npc.IsOnGround}, Wall={npc.IsOnWall}, LOD={npc.LodTier})");
+                    string navStatus = npc.PathFollower != null ? $", Nav={npc.PathFollower.Status}" : "";
+                    Log($"  ID {npc.Id}: '{npc.Name}' at {npc.Position} (Grounded={npc.IsOnGround}, Wall={npc.IsOnWall}, LOD={npc.LodTier}{navStatus})");
+                }
+                break;
+            }
+
+            case "nav_to":
+            case "goto":
+            {
+                if (parts.Length < 2)
+                {
+                    Log("Usage: nav_to <id|name> [x y z]");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                Vec3i goalCell;
+                if (parts.Length >= 5 &&
+                    int.TryParse(parts[2], out int gx) &&
+                    int.TryParse(parts[3], out int gy) &&
+                    int.TryParse(parts[4], out int gz))
+                {
+                    goalCell = new Vec3i(gx, gy, gz);
+                }
+                else if (Player != null && Player.CurrentRaycast.IsHit)
+                {
+                    goalCell = Player.CurrentRaycast.AdjacentPos;
+                }
+                else if (Player != null)
+                {
+                    goalCell = new Vec3i(
+                        (int)MathF.Floor(Player.GlobalPosition.X),
+                        (int)MathF.Round(Player.GlobalPosition.Y),
+                        (int)MathF.Floor(Player.GlobalPosition.Z));
+                }
+                else
+                {
+                    Log("Coordinates required if player target is not available.");
+                    break;
+                }
+
+                if (NavigateNpc(target.Id, goalCell, out var result))
+                {
+                    Log($"Navigating '{target.Name}' to {goalCell}. Waypoints: {result.Waypoints.Count} ({result.Status}, cost: {result.TotalCost:F1})");
+                }
+                else
+                {
+                    Log($"Failed to find path for '{target.Name}' to {goalCell}: {result.FailureReason}");
+                }
+                break;
+            }
+
+            case "mine_npc":
+            {
+                if (parts.Length < 2)
+                {
+                    Log("Usage: mine_npc <id|name> [x y z]");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                Vec3i targetBlock;
+                if (parts.Length >= 5 &&
+                    int.TryParse(parts[2], out int mx) &&
+                    int.TryParse(parts[3], out int my) &&
+                    int.TryParse(parts[4], out int mz))
+                {
+                    targetBlock = new Vec3i(mx, my, mz);
+                }
+                else if (Player != null && Player.CurrentRaycast.IsHit)
+                {
+                    targetBlock = Player.CurrentRaycast.BlockPos;
+                }
+                else
+                {
+                    var facing = target.GetFacingDirection();
+                    targetBlock = (target.Position + facing * 1.5f).FloorToInt();
+                }
+
+                var blocks = NpcManager.BlockRegistry ?? (VoxelWorld as VoxelWorld)?.BlockRegistry;
+                if (blocks == null)
+                {
+                    Log("No block registry available.");
+                    break;
+                }
+
+                var mineAction = new MineAction(target, targetBlock, VoxelWorld, blocks, NpcManager.ContainerManager);
+                mineAction.Start();
+                target.CurrentAction = mineAction;
+                Log($"Started MineAction on '{target.Name}' targeting {targetBlock}. Status: {mineAction.Status}");
+                break;
+            }
+
+            case "place_npc":
+            {
+                if (parts.Length < 3)
+                {
+                    Log("Usage: place_npc <id|name> <block_id> [x y z]");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                string blockId = parts[2];
+                Vec3i targetBlock;
+                if (parts.Length >= 6 &&
+                    int.TryParse(parts[3], out int px) &&
+                    int.TryParse(parts[4], out int py) &&
+                    int.TryParse(parts[5], out int pz))
+                {
+                    targetBlock = new Vec3i(px, py, pz);
+                }
+                else if (Player != null && Player.CurrentRaycast.IsHit)
+                {
+                    targetBlock = Player.CurrentRaycast.AdjacentPos;
+                }
+                else
+                {
+                    var facing = target.GetFacingDirection();
+                    targetBlock = (target.Position + facing * 1.5f).FloorToInt();
+                }
+
+                var blocks = NpcManager.BlockRegistry ?? (VoxelWorld as VoxelWorld)?.BlockRegistry;
+                if (blocks == null)
+                {
+                    Log("No block registry available.");
+                    break;
+                }
+
+                // Ensure NPC has at least one of the item to place
+                if (target.Inventory.CountItem(blockId) == 0)
+                {
+                    target.Inventory.AddItem(blockId, 5, out _);
+                }
+
+                var placeAction = new PlaceAction(target, targetBlock, blockId, VoxelWorld, blocks, NpcManager.ContainerManager, NpcManager.Registry);
+                placeAction.Start();
+                target.CurrentAction = placeAction;
+                Log($"Started PlaceAction on '{target.Name}' placing '{blockId}' at {targetBlock}. Status: {placeAction.Status}");
+                break;
+            }
+
+            case "say_npc":
+            {
+                if (parts.Length < 3)
+                {
+                    Log("Usage: say_npc <id|name> <text>");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                string speechText = string.Join(' ', parts.Skip(2));
+                var sayAction = new SayAction(target, speechText, NpcManager.EventBus);
+                sayAction.Start();
+                Log($"NPC '{target.Name}' said: \"{speechText}\"");
+                break;
+            }
+
+            case "wait_npc":
+            {
+                if (parts.Length < 3 || !float.TryParse(parts[2], out float secs))
+                {
+                    Log("Usage: wait_npc <id|name> <seconds>");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                var waitAction = new WaitAction(target, secs);
+                waitAction.Start();
+                target.CurrentAction = waitAction;
+                Log($"Started WaitAction on '{target.Name}' for {secs}s.");
+                break;
+            }
+
+            case "cancel_npc":
+            {
+                if (parts.Length < 2)
+                {
+                    Log("Usage: cancel_npc <id|name>");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                if (target.CurrentAction != null && target.CurrentAction.Status.IsRunning)
+                {
+                    target.CurrentAction.Cancel();
+                    Log($"Cancelled active action '{target.CurrentAction.Name}' on '{target.Name}'. Status: {target.CurrentAction.Status}");
+                    target.CurrentAction = null;
+                }
+                else
+                {
+                    Log($"NPC '{target.Name}' has no active running action.");
                 }
                 break;
             }

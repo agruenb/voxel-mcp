@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Npc;
+using VoxelKing.Core.Npc.Actions;
 using VoxelKing.Core.Voxel;
 using Xunit;
 
@@ -177,5 +178,27 @@ public class NpcManagerTests
         Assert.True(npc.Position.X <= 1.701f);
         Assert.True(npc.IsOnWall);
         Assert.True(npc.IsOnGround);
+    }
+
+    [Fact]
+    public void PhysicsTick_TicksActiveAction_AndCompletes()
+    {
+        var registry = new EntityRegistry();
+        var manager = new NpcManager(registry);
+
+        var npc = manager.SpawnNpc("ActionBot", new Vec3(0f, 1f, 0f));
+        var action = new WaitAction(npc, 0.2f);
+        action.Start();
+        npc.CurrentAction = action;
+
+        Assert.True(action.Status.IsRunning);
+
+        // Advance 15 ticks @ 60Hz = 0.25s > 0.2s duration
+        for (int i = 0; i < 15; i++)
+        {
+            manager.PhysicsTick(1f / 60f);
+        }
+
+        Assert.True(action.Status.IsSucceeded);
     }
 }

@@ -1,5 +1,7 @@
 namespace VoxelKing.Core.Entities;
 
+using VoxelKing.Core.Common;
+
 /// <summary>
 /// Event published when an entity is spawned into the world simulation.
 /// </summary>
@@ -14,3 +16,9 @@ public readonly record struct EntityDespawned(EntityId Id, EntityKind Kind);
 /// Event published when an item entity is picked up by an entity with an inventory.
 /// </summary>
 public readonly record struct ItemPickedUp(EntityId PickerId, EntityId ItemId, string ItemName, int Count);
+
+/// <summary>
+/// Event published when an entity speaks text aloud into the world.
+/// </summary>
+public readonly record struct EntitySpoke(EntityId SpeakerId, string SpeakerName, Vec3 Position, string Text, float HearingRadius = 16.0f);
+

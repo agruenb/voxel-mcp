@@ -5,6 +5,7 @@ using System.IO;
 using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
@@ -31,8 +32,10 @@ public partial class GameRoot : Node
     public ContainerManager ContainerManager { get; private set; } = new();
     public NamedPlaces NamedPlaces { get; private set; } = new();
     public EntityRegistry EntityRegistry { get; private set; } = null!;
+    public IPathfindingService PathfindingService { get; private set; } = null!;
     public NpcManager NpcManager { get; private set; } = null!;
     public NpcViewManager NpcViewManager { get; private set; } = null!;
+    public DebugPathRenderer DebugPathRenderer { get; private set; } = null!;
     public DebugConsole DebugConsole { get; private set; } = null!;
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
@@ -96,6 +99,7 @@ public partial class GameRoot : Node
         }
 
         VoxelWorld = new VoxelWorld(BlockRegistry, EventBus);
+        PathfindingService = new PathfindingService(VoxelWorld);
         TerrainGenerator = new TerrainGenerator(config.World, BlockRegistry);
         ChunkMesher = new ChunkMesher(BlockRegistry);
 
@@ -105,10 +109,13 @@ public partial class GameRoot : Node
             config.Npc,
             VoxelWorld,
             EventBus,
-            LoggerFactory.CreateLogger<NpcManager>()
+            LoggerFactory.CreateLogger<NpcManager>(),
+            PathfindingService
         )
         {
-            FreezeDistance = config.World.LoadedChunkRadius * config.World.ChunkSize
+            FreezeDistance = config.World.LoadedChunkRadius * config.World.ChunkSize,
+            ContainerManager = ContainerManager,
+            BlockRegistry = BlockRegistry
         };
 
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
@@ -172,12 +179,18 @@ public partial class GameRoot : Node
         AddChild(NpcViewManager);
         NpcViewManager.Initialize(EventBus, NpcManager);
 
+        DebugPathRenderer = new DebugPathRenderer { Name = "DebugPathRenderer" };
+        AddChild(DebugPathRenderer);
+        DebugPathRenderer.Initialize(NpcManager);
+
         DebugConsole = new DebugConsole
         {
             Name = "DebugConsole",
             NpcManager = NpcManager,
             VoxelWorld = VoxelWorld,
-            Player = player
+            Player = player,
+            PathfindingService = PathfindingService,
+            PathRenderer = DebugPathRenderer
         };
         AddChild(DebugConsole);
 
@@ -187,7 +200,7 @@ public partial class GameRoot : Node
         Logger.LogInfo($"TerrainGenerator initialized with seed {config.World.Seed}");
         Logger.LogInfo("ChunkMesher initialized");
         Logger.LogInfo("NpcManager and EntityRegistry initialized");
-        Logger.LogInfo("NpcViewManager and DebugConsole initialized");
+        Logger.LogInfo("NpcViewManager, DebugPathRenderer, and DebugConsole initialized");
     }
 
     public override void _PhysicsProcess(double delta)

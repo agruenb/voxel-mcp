@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Voxel;
 
 /// <summary>
@@ -49,6 +50,9 @@ public sealed class NpcManager
     public float FreezeDistance { get; set; } = DefaultFreezeDistance;
     public float ItemPickupRadius { get; set; } = DefaultItemPickupRadius;
     public float Gravity { get; set; } = DefaultGravity;
+    public IPathfindingService? PathfindingService { get; set; }
+    public ContainerManager? ContainerManager { get; set; }
+    public IBlockRegistry? BlockRegistry { get; set; }
 
     public int TotalBrainTicks { get; private set; }
     public int TotalPhysicsTicks { get; private set; }
@@ -63,13 +67,15 @@ public sealed class NpcManager
         NpcConfig? config = null,
         IVoxelWorld? voxelWorld = null,
         IEventBus? eventBus = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        IPathfindingService? pathfindingService = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _config = config ?? new NpcConfig();
         _voxelWorld = voxelWorld;
         _eventBus = eventBus;
         _logger = logger;
+        PathfindingService = pathfindingService;
 
         int physicsHz = Math.Max(1, _config.PhysicsTickRateHz);
         int brainHz = Math.Max(1, _config.BrainTickRateHz);
@@ -158,6 +164,19 @@ public sealed class NpcManager
     }
 
     /// <summary>
+    /// Spawns a dropped item entity by item ID and count.
+    /// </summary>
+    public ItemEntity SpawnItem(
+        string itemId,
+        int count,
+        Vec3 position,
+        Vec3? velocity = null,
+        float pickupCooldown = 0.5f)
+    {
+        return SpawnItem(new ItemStack(itemId, count), position, velocity, pickupCooldown);
+    }
+
+    /// <summary>
     /// Despawns an item entity from the world.
     /// </summary>
     public bool DespawnItem(EntityId id)
@@ -205,11 +224,23 @@ public sealed class NpcManager
             }
         }
 
-        // 2. Update NPC positions and kinematic collisions
+        // 2. Tick queued pathfinding requests within frame budget
+        PathfindingService?.Tick();
+
+        // 3. Update active NPC actions, path followers, positions, and kinematic collisions
         if (_npcsById.Count > 0)
         {
             foreach (var npc in _npcsById.Values)
             {
+                if (npc.CurrentAction != null && npc.CurrentAction.Status.IsRunning)
+                {
+                    npc.CurrentAction.Tick(dt);
+                }
+                else
+                {
+                    npc.PathFollower?.Update(dt);
+                }
+
                 if (_voxelWorld != null)
                 {
                     KinematicMover.Move(npc, _voxelWorld, dt, Gravity, npc.StepHeight);
