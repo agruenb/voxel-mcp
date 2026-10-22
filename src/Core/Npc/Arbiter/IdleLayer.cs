@@ -120,6 +120,23 @@ public sealed class IdleLayer : IIdleLayer
 
         if (_waitTimer <= 0f)
         {
+            // If the NPC is in the air (falling), delay wandering until landed on ground
+            bool isGrounded = _npc.IsOnGround;
+            if (!isGrounded && _world != null)
+            {
+                var blockBelow = new Vec3i(
+                    (int)MathF.Floor(_npc.Position.X),
+                    (int)MathF.Floor(_npc.Position.Y - 0.1f),
+                    (int)MathF.Floor(_npc.Position.Z));
+                isGrounded = Walkability.IsSolid(_world, blockBelow);
+            }
+
+            if (!isGrounded)
+            {
+                _waitTimer = 0.5f;
+                return;
+            }
+
             TryStartWander();
         }
     }
@@ -160,12 +177,20 @@ public sealed class IdleLayer : IIdleLayer
 
             int cx = (int)MathF.Round(candidateX);
             int cz = (int)MathF.Round(candidateZ);
+            int refY = (int)MathF.Round(_npc.Position.Y);
             int homeY = (int)MathF.Round(_npc.Home.Y);
+            int scanMaxY = Math.Max(refY, homeY) + 6;
+            int scanMinY = Math.Min(refY, homeY) - 10;
 
-            var surface = _walkability.Surface(cx, cz, homeY + 4, homeY - 6);
+            var surface = _walkability.Surface(cx, cz, scanMaxY, scanMinY);
             if (!surface.HasValue)
             {
-                continue;
+                // Fall back to general column surface if within reasonable height
+                surface = _walkability.Surface(cx, cz);
+                if (!surface.HasValue)
+                {
+                    continue;
+                }
             }
 
             var cell = surface.Value;

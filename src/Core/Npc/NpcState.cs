@@ -33,6 +33,7 @@ public sealed class NpcState : IEntity
     public float MaxHealth { get; set; } = DefaultMaxHealth;
     public IInventory Inventory { get; }
     public Vec3 Home { get; set; }
+    public bool HasExplicitHome { get; set; }
     public bool IsActive { get; set; } = true;
 
     /// <summary>
@@ -165,6 +166,7 @@ public sealed class NpcState : IEntity
         Position = position;
         Velocity = Vec3.Zero;
         Home = home ?? position;
+        HasExplicitHome = home != null;
         Inventory = inventory ?? new Inventory(36);
         Health = Math.Clamp(health, 0f, MaxHealth);
         Facing = facing;

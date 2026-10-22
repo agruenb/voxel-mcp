@@ -282,6 +282,14 @@ public sealed class NpcManager
                     npc.Position += npc.Velocity * dt;
                 }
 
+                if (npc.IsOnGround && !npc.HasExplicitHome)
+                {
+                    npc.Home = npc.Position;
+                    npc.HasExplicitHome = true;
+                    var homePos = new Vec3i((int)MathF.Floor(npc.Home.X), (int)MathF.Floor(npc.Home.Y), (int)MathF.Floor(npc.Home.Z));
+                    npc.Memory.RememberPlace("home", homePos);
+                }
+
                 _registry.UpdateSpatial(npc);
             }
         }

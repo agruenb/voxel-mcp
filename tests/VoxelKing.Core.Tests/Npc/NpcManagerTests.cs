@@ -165,6 +165,8 @@ public class NpcManagerTests
 
         Assert.True(npc.IsOnGround);
         Assert.Equal(1.0f, npc.Position.Y, 2);
+        Assert.Equal(npc.Position.Y, npc.Home.Y, 2);
+        Assert.True(npc.HasExplicitHome);
 
         // Give NPC horizontal velocity towards the wall
         npc.Velocity = new Vec3(4.0f, 0f, 0f);

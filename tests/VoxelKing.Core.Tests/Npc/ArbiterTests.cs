@@ -339,6 +339,53 @@ public class ArbiterTests
     }
 
     [Fact]
+    public void Idle_WhenSpawnedInAir_WaitsUntilGroundedThenWanders()
+    {
+        var (world, blocks, bus, pathService) = CreateTestEnv();
+        ushort stone = blocks.GetId("stone");
+
+        // Ground at y=0, air above
+        for (int x = -10; x <= 10; x++)
+        {
+            for (int z = -10; z <= 10; z++)
+            {
+                world.SetBlock(x, 0, z, stone);
+            }
+        }
+
+        // Spawned high in air at Y=20 with home initially at Y=20
+        var npc = new NpcState(new EntityId(2), "AirDrop", new Vec3(0.5f, 20.0f, 0.5f))
+        {
+            Home = new Vec3(0.5f, 20.0f, 0.5f),
+            IsOnGround = false
+        };
+
+        var idle = new IdleLayer(npc, world, pathService, eventBus: bus)
+        {
+            MinWaitTime = 0.0f,
+            MaxWaitTime = 0.0f
+        };
+        idle.Reset();
+
+        // 1. Tick while still in air -> should remain Waiting and not start wander action
+        idle.Tick(0.1f);
+        Assert.Equal(IdleState.Waiting, idle.State);
+        Assert.Null(idle.CurrentWanderGoal);
+        Assert.Null(npc.CurrentAction);
+
+        // 2. Simulate landing on ground at Y=1.0
+        npc.Position = new Vec3(0.5f, 1.0f, 0.5f);
+        npc.IsOnGround = true;
+
+        // Advance wait timer so it tries wandering again
+        idle.Tick(0.6f);
+
+        Assert.Equal(IdleState.Wandering, idle.State);
+        Assert.NotNull(idle.CurrentWanderGoal);
+        Assert.NotNull(npc.CurrentAction);
+    }
+
+    [Fact]
     public void Idle_LooksAtNearbyPlayer()
     {
         var (world, blocks, bus, pathService) = CreateTestEnv();
