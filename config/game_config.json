@@ -36,13 +36,15 @@
     "timeoutSeconds": 30,
     "maxRetries": 2,
     "maxConcurrentRequests": 2,
+    "requestsPerMinute": 60,
     "apiKey": ""
   },
   "debug": {
     "showOverlay": false,
     "drawPaths": false,
     "logLlmRequests": true,
-    "logLevel": "Info"
+    "logLevel": "Info",
+    "llmLogDirectory": "user://logs/llm"
   },
   "player": {
     "walkSpeed": 5.0,

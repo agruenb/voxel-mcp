@@ -2,14 +2,16 @@ namespace VoxelKing.Game.Bootstrap;
 
 using System;
 using System.IO;
+using System.Net.Http;
 using Godot;
+using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Llm;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
-using VoxelKing.Core.Brain;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Debug;
 using VoxelKing.Game.Npc;
@@ -46,6 +48,8 @@ public partial class GameRoot : Node
     public ChestUI? ChestUI { get; private set; }
     public ChatLogUI? ChatLogUI { get; private set; }
     public ILuaRuntime LuaRuntime { get; private set; } = null!;
+    public ILlmClient LlmClient { get; private set; } = null!;
+    public LlmRequestQueue LlmQueue { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -129,6 +133,23 @@ public partial class GameRoot : Node
         };
 
         LuaRuntime = new MoonSharpRuntime(config.BrainLimits);
+
+        var httpClient = new System.Net.Http.HttpClient();
+        var geminiClient = new GeminiClient(httpClient, config.Llm, loggerFactory.CreateLogger<GeminiClient>());
+        var mockClient = new MockLlmClient();
+        var fallbackClient = new FallbackLlmClient(geminiClient, mockClient, config.Llm, EventBus, loggerFactory.CreateLogger<FallbackLlmClient>());
+        LlmClient = fallbackClient;
+
+        string llmLogDir = ProjectSettings.GlobalizePath(config.Debug.LlmLogDirectory);
+        ILlmRequestLogger requestLogger = config.Debug.LogLlmRequests
+            ? new FileLlmRequestLogger(llmLogDir, loggerFactory.CreateLogger<FileLlmRequestLogger>())
+            : NullLlmRequestLogger.Instance;
+
+        LlmQueue = new LlmRequestQueue(
+            fallbackClient,
+            config.Llm,
+            requestLogger,
+            loggerFactory.CreateLogger<LlmRequestQueue>());
 
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
         if (ChunkStreamer.GetParent() == null)
@@ -226,6 +247,7 @@ public partial class GameRoot : Node
         Logger.LogInfo("ChunkMesher initialized");
         Logger.LogInfo("NpcManager and EntityRegistry initialized");
         Logger.LogInfo("NpcViewManager, DebugPathRenderer, DebugConsole, and DebugBrainConsole initialized");
+        Logger.LogInfo("LlmRequestQueue initialized successfully");
     }
 
     public override void _PhysicsProcess(double delta)
@@ -253,6 +275,7 @@ public partial class GameRoot : Node
 
     public override void _ExitTree()
     {
+        LlmQueue?.Dispose();
         NpcManager?.Dispose();
         _fileLogSink?.Dispose();
         _fileLogSink = null;

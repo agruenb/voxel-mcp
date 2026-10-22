@@ -97,6 +97,7 @@ public sealed record LlmConfig
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetries { get; set; } = 2;
     public int MaxConcurrentRequests { get; set; } = 2;
+    public int RequestsPerMinute { get; set; } = 60;
     public string ApiKey { get; set; } = string.Empty;
 }
 
@@ -109,4 +110,5 @@ public sealed record DebugConfig
     public bool DrawPaths { get; set; } = false;
     public bool LogLlmRequests { get; set; } = true;
     public string LogLevel { get; set; } = "Info";
+    public string LlmLogDirectory { get; set; } = "user://logs/llm";
 }

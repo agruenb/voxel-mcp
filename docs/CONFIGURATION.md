@@ -65,6 +65,7 @@ Controls execution limits and storage quotas for NPC Lua behaviour brains.
 | `timeoutSeconds` | int | `30` | Network timeout for Gemini API calls in seconds. |
 | `maxRetries` | int | `2` | Maximum number of repair retries when generated Lua fails validation. |
 | `maxConcurrentRequests` | int | `2` | Maximum parallel requests allowed in the LLM queue. |
+| `requestsPerMinute` | int | `60` | Token-bucket rate limit ceiling in requests per minute (<= 0 disables throttling). |
 | `apiKey` | string | `""` | Gemini API key. Never commit this key! Set via `user://config.json` or `GEMINI_API_KEY` environment variable. |
 
 ---
@@ -97,3 +98,4 @@ Controls execution limits and storage quotas for NPC Lua behaviour brains.
 | `drawPaths` | bool | `false` | Renders 3D waypoint lines for NPC pathfinding paths. |
 | `logLlmRequests` | bool | `true` | Logs prompts and raw responses from LLM interactions for debugging. |
 | `logLevel` | string | `"Info"` | Minimum console log level (`"Debug"`, `"Info"`, `"Warning"`, `"Error"`). |
+| `llmLogDirectory` | string | `"user://logs/llm"` | Directory where full LLM JSON audit logs are stored. |

@@ -89,7 +89,7 @@ flowchart LR
 | F-307 | Brain validator (compile + dry run) | M3 | F-303 | Done |
 | F-401 | Prompt builder | M4 | F-302, F-305 | Done |
 | F-402 | LLM client abstraction, Gemini & mock clients | M4 | F-002 | Done |
-| F-403 | LLM request queue | M4 | F-402 | Todo |
+| F-403 | LLM request queue | M4 | F-402 | Done |
 | F-404 | BrainCompiler (generate → validate → repair) | M4 | F-401, F-403, F-307 | Todo |
 | F-405 | Dialogue UI & NPC conversation states | M4 | F-108, F-404, F-209 | Todo |
 | F-406 | Spawn multiple NPCs with profiles | M4 | F-208 | Todo |
