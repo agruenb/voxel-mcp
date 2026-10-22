@@ -7,6 +7,7 @@ using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
+using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Debug;
@@ -33,6 +34,7 @@ public partial class GameRoot : Node
     public NamedPlaces NamedPlaces { get; private set; } = new();
     public EntityRegistry EntityRegistry { get; private set; } = null!;
     public IPathfindingService PathfindingService { get; private set; } = null!;
+    public IPerceptionService PerceptionService { get; private set; } = null!;
     public NpcManager NpcManager { get; private set; } = null!;
     public NpcViewManager NpcViewManager { get; private set; } = null!;
     public DebugPathRenderer DebugPathRenderer { get; private set; } = null!;
@@ -104,13 +106,16 @@ public partial class GameRoot : Node
         ChunkMesher = new ChunkMesher(BlockRegistry);
 
         EntityRegistry = new EntityRegistry(config.World.PerceptionRadiusBlocks);
+        PerceptionService = new PerceptionService(VoxelWorld, EntityRegistry, config.World);
+
         NpcManager = new NpcManager(
             EntityRegistry,
             config.Npc,
             VoxelWorld,
             EventBus,
             LoggerFactory.CreateLogger<NpcManager>(),
-            PathfindingService
+            PathfindingService,
+            PerceptionService
         )
         {
             FreezeDistance = config.World.LoadedChunkRadius * config.World.ChunkSize,

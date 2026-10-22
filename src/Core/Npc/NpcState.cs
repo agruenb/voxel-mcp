@@ -6,6 +6,7 @@ using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc.Actions;
+using VoxelKing.Core.Npc.Perception;
 
 /// <summary>
 /// Authoritative simulation state for an individual NPC in the world.
@@ -67,6 +68,11 @@ public sealed class NpcState : IEntity
     /// Active primary action currently being executed by this NPC, or null if idle.
     /// </summary>
     public IAction? CurrentAction { get; set; }
+
+    /// <summary>
+    /// Scoped spatial perception query interface for this NPC.
+    /// </summary>
+    public INpcPerception? Perception { get; set; }
 
     /// <summary>
     /// Active path follower controlling navigation for this NPC, or null if idle.

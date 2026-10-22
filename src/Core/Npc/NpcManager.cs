@@ -6,6 +6,7 @@ using System.Linq;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
+using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
 
 /// <summary>
@@ -53,6 +54,7 @@ public sealed class NpcManager
     public IPathfindingService? PathfindingService { get; set; }
     public ContainerManager? ContainerManager { get; set; }
     public IBlockRegistry? BlockRegistry { get; set; }
+    public IPerceptionService? PerceptionService { get; set; }
 
     public int TotalBrainTicks { get; private set; }
     public int TotalPhysicsTicks { get; private set; }
@@ -68,7 +70,8 @@ public sealed class NpcManager
         IVoxelWorld? voxelWorld = null,
         IEventBus? eventBus = null,
         ILogger? logger = null,
-        IPathfindingService? pathfindingService = null)
+        IPathfindingService? pathfindingService = null,
+        IPerceptionService? perceptionService = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _config = config ?? new NpcConfig();
@@ -76,6 +79,7 @@ public sealed class NpcManager
         _eventBus = eventBus;
         _logger = logger;
         PathfindingService = pathfindingService;
+        PerceptionService = perceptionService ?? (voxelWorld != null ? new PerceptionService(voxelWorld, _registry) : null);
 
         int physicsHz = Math.Max(1, _config.PhysicsTickRateHz);
         int brainHz = Math.Max(1, _config.BrainTickRateHz);
@@ -118,6 +122,11 @@ public sealed class NpcManager
         // Assign initial LOD tier based on distance to player
         var tier = CalculateLodTier(npc.Position);
         AssignNpcToTier(npc, tier);
+
+        if (PerceptionService != null)
+        {
+            npc.Perception = PerceptionService.For(npc);
+        }
 
         _eventBus?.Publish(new EntitySpawned(npc));
         _logger?.LogDebug($"Spawned NPC '{name}' (ID {id}) at {position} in LOD {tier}");
