@@ -401,9 +401,14 @@ public sealed class BrainHost : IBrainHost
                 var dynArgs = ConvertArgsToDynValue(evt.Args);
                 coro.Coroutine.Resume(dynArgs);
 
-                if (coro.Coroutine.State is CoroutineState.ForceSuspended or CoroutineState.Suspended)
+                if (coro.Coroutine.State == CoroutineState.ForceSuspended)
                 {
                     HandleRuntimeError("handler budget exceeded");
+                    return;
+                }
+                else if (coro.Coroutine.State == CoroutineState.Suspended)
+                {
+                    HandleRuntimeError("event handlers cannot yield");
                     return;
                 }
             }

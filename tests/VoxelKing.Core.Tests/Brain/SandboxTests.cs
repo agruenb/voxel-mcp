@@ -60,6 +60,9 @@ public class SandboxTests
     [InlineData("json")]
     [InlineData("collectgarbage")]
     [InlineData("module")]
+    [InlineData("loadfile")]
+    [InlineData("setfenv")]
+    [InlineData("getfenv")]
     public void ForbiddenGlobals_AreAbsentAndTriggerUnknownGlobalError(string globalName)
     {
         var runtime = new MoonSharpRuntime();

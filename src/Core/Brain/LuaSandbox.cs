@@ -33,6 +33,9 @@ public static class LuaSandbox
         "json",
         "collectgarbage",
         "module",
+        "loadfile",
+        "setfenv",
+        "getfenv",
     };
 
     /// <summary>
@@ -71,13 +74,28 @@ public static class LuaSandbox
             script.Globals.Remove(globalName);
         }
 
-        // Remove string.dump
+        // Remove string.dump and protect string table
         var stringTable = script.Globals.Get("string").Table;
-        stringTable?.Remove("dump");
+        if (stringTable != null)
+        {
+            stringTable.Remove("dump");
+            ProtectTable(stringTable, script);
+        }
 
-        // Remove math.randomseed to prevent user scripts from mutating global RNG state
+        // Remove math.randomseed and protect math table
         var mathTable = script.Globals.Get("math").Table;
-        mathTable?.Remove("randomseed");
+        if (mathTable != null)
+        {
+            mathTable.Remove("randomseed");
+            ProtectTable(mathTable, script);
+        }
+
+        // Protect table standard library table
+        var tableTable = script.Globals.Get("table").Table;
+        if (tableTable != null)
+        {
+            ProtectTable(tableTable, script);
+        }
 
         // Bind deterministic random provider
         var provider = randomProvider ?? new DefaultRandomProvider(seed);

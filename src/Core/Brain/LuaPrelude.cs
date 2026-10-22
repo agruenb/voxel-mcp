@@ -64,6 +64,8 @@ pos_mt.__tostring = function(self)
     return string.format('pos(%d, %d, %d)', self.x, self.y, self.z)
 end
 
+pos_mt.__metatable = 'protected'
+
 function vec(x, y, z)
     if x == nil or y == nil or z == nil then
         error('vec(x, y, z) expects 3 arguments')
