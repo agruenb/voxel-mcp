@@ -171,7 +171,7 @@ public class TerrainGeneratorTests
         var generator = new TerrainGenerator(1337, _registry);
 
         // Warmup JIT
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 6; i++)
         {
             generator.GenerateChunk(new Vec3i(i, 2, i));
         }

@@ -6,6 +6,7 @@ using System.Linq;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
+using VoxelKing.Core.Npc.Memory;
 using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
 
@@ -111,10 +112,11 @@ public sealed class NpcManager
         Vec3? home = null,
         IInventory? inventory = null,
         float health = NpcState.DefaultMaxHealth,
-        float facing = 0f)
+        float facing = 0f,
+        INpcMemory? memory = null)
     {
         var id = _registry.GenerateNextId();
-        var npc = new NpcState(id, name, position, profile, home, inventory, health, facing);
+        var npc = new NpcState(id, name, position, profile, home, inventory, health, facing, memory);
 
         _registry.Register(npc);
         _npcsById[id] = npc;

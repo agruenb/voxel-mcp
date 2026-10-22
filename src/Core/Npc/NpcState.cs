@@ -6,6 +6,7 @@ using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc.Actions;
+using VoxelKing.Core.Npc.Memory;
 using VoxelKing.Core.Npc.Perception;
 
 /// <summary>
@@ -75,6 +76,11 @@ public sealed class NpcState : IEntity
     public INpcPerception? Perception { get; set; }
 
     /// <summary>
+    /// Persistent memory store (event log, KV store, known places) for this NPC.
+    /// </summary>
+    public INpcMemory Memory { get; set; }
+
+    /// <summary>
     /// Active path follower controlling navigation for this NPC, or null if idle.
     /// </summary>
     public IPathFollower? PathFollower { get; set; }
@@ -139,7 +145,8 @@ public sealed class NpcState : IEntity
         Vec3? home = null,
         IInventory? inventory = null,
         float health = DefaultMaxHealth,
-        float facing = 0f)
+        float facing = 0f,
+        INpcMemory? memory = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -155,6 +162,13 @@ public sealed class NpcState : IEntity
         Inventory = inventory ?? new Inventory(36);
         Health = Math.Clamp(health, 0f, MaxHealth);
         Facing = facing;
+        Memory = memory ?? new NpcMemory();
+
+        if (Memory.Place("home") == null)
+        {
+            var homePos = new Vec3i((int)MathF.Floor(Home.X), (int)MathF.Floor(Home.Y), (int)MathF.Floor(Home.Z));
+            Memory.RememberPlace("home", homePos);
+        }
     }
 
     /// <summary>
@@ -180,11 +194,16 @@ public sealed class NpcState : IEntity
 
     /// <summary>
     /// Reduces health by the given damage amount, clamped at 0.
+    /// Optionally records an attack event in memory if source is provided.
     /// </summary>
-    public void TakeDamage(float amount)
+    public void TakeDamage(float amount, string source = "")
     {
         if (amount <= 0f) return;
         Health = Math.Max(0f, Health - amount);
+        if (!string.IsNullOrEmpty(source))
+        {
+            Memory.RecordAttacked(source, amount);
+        }
     }
 
     /// <summary>
