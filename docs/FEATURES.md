@@ -87,7 +87,7 @@ flowchart LR
 | F-305 | Example brain library | M3 | F-303 | Done |
 | F-306 | Debug brain console | M3 | F-303, F-108 | Done |
 | F-307 | Brain validator (compile + dry run) | M3 | F-303 | Done |
-| F-401 | Prompt builder | M4 | F-302, F-305 | Todo |
+| F-401 | Prompt builder | M4 | F-302, F-305 | Done |
 | F-402 | LLM client abstraction, Gemini & mock clients | M4 | F-002 | Todo |
 | F-403 | LLM request queue | M4 | F-402 | Todo |
 | F-404 | BrainCompiler (generate → validate → repair) | M4 | F-401, F-403, F-307 | Todo |

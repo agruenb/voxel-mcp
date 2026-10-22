@@ -21,6 +21,27 @@ public sealed class NpcState : IEntity
     public EntityKind Kind => EntityKind.Npc;
     public string Name { get; set; }
     public string Profile { get; set; }
+
+    /// <summary>
+    /// Personality description for prompt generation (e.g. "grumpy but helpful farmer").
+    /// </summary>
+    public string Personality { get; set; } = string.Empty;
+
+    /// <summary>
+    /// List of skills or proficiencies for prompt generation (e.g. ["farming", "mining"]).
+    /// </summary>
+    public IReadOnlyList<string> Skills { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Short summary of the currently active task assigned to this NPC, or null if idle.
+    /// </summary>
+    public string? CurrentTaskSummary { get; set; }
+
+    /// <summary>
+    /// Simulation timestamp in seconds when the currently active task started.
+    /// </summary>
+    public double TaskStartTime { get; set; }
+
     public Vec3 Position { get; set; }
     public Vec3 Velocity { get; set; }
 
@@ -159,7 +180,9 @@ public sealed class NpcState : IEntity
         float health = DefaultMaxHealth,
         float facing = 0f,
         INpcMemory? memory = null,
-        Arbiter.IBehaviourArbiter? arbiter = null)
+        Arbiter.IBehaviourArbiter? arbiter = null,
+        string? personality = null,
+        IReadOnlyList<string>? skills = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -169,6 +192,8 @@ public sealed class NpcState : IEntity
         Id = id;
         Name = name;
         Profile = profile;
+        Personality = personality ?? (string.IsNullOrEmpty(profile) ? string.Empty : profile);
+        Skills = skills ?? Array.Empty<string>();
         Position = position;
         Velocity = Vec3.Zero;
         Home = home ?? position;
