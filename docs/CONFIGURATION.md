@@ -99,3 +99,33 @@ Controls execution limits and storage quotas for NPC Lua behaviour brains.
 | `logLlmRequests` | bool | `true` | Logs prompts and raw responses from LLM interactions for debugging. |
 | `logLevel` | string | `"Info"` | Minimum console log level (`"Debug"`, `"Info"`, `"Warning"`, `"Error"`). |
 | `llmLogDirectory` | string | `"user://logs/llm"` | Directory where full LLM JSON audit logs are stored. |
+
+---
+
+## 7. `config/npcs.json` — NPC Profiles (F-406)
+
+Defines initial NPC profiles spawned near the player start. Supports distinct identities, personalities, skills, visual clothing colours, home anchors, and optional initial brains and inventory.
+
+```json
+[
+  {
+    "name": "Bob",
+    "personality": "grumpy but helpful farmer and builder",
+    "skills": ["farming", "building", "mining"],
+    "appearanceColor": "#3D7BEB",
+    "homeOffset": { "x": 3.0, "y": 0.0, "z": 2.0 },
+    "initialBrain": "farm_loop"
+  }
+]
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `name` | string | Display name shown in 3D billboard name tag and dialogue UI. |
+| `personality` | string | Personality description fed into prompt generation and displayed in dialogue UI. |
+| `skills` | string[] | Array of skills and proficiencies fed into prompt generation. |
+| `appearanceColor` | string | Hexadecimal color code (e.g. `#3D7BEB`) or named color applied to the NPC's torso mesh. |
+| `homeOffset` | object / float[] | Spatial vector offset `{ "x", "y", "z" }` relative to player spawn origin. |
+| `initialBrain` | string | Optional Lua brain script or example brain name (e.g. `"gather_logs"`, `"farm_loop"`) to run on spawn. |
+| `startingInventory` | object | Optional dictionary of block/item IDs and initial quantities. |
+

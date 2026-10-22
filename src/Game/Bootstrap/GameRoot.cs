@@ -1,6 +1,7 @@
 namespace VoxelKing.Game.Bootstrap;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using Godot;
@@ -258,15 +259,7 @@ public partial class GameRoot : Node
 
             if (NpcManager.ActiveNpcs.Count == 0)
             {
-                var spawnPos = new Vec3(player.GlobalPosition.X + 2.5f, player.GlobalPosition.Y, player.GlobalPosition.Z + 2.5f);
-                var bob = NpcManager.SpawnNpc(
-                    "Bob",
-                    spawnPos,
-                    profile: "grumpy but helpful farmer and builder",
-                    home: spawnPos);
-                bob.Personality = "grumpy but helpful farmer and builder";
-                bob.Skills = new[] { "farming", "mining", "building" };
-                Logger.LogInfo($"Spawned default NPC 'Bob' at {spawnPos}");
+                SpawnInitialNpcs(player);
             }
         }
 
@@ -288,6 +281,65 @@ public partial class GameRoot : Node
         Logger.LogInfo("NpcViewManager, DebugPathRenderer, DebugConsole, and DebugBrainConsole initialized");
         Logger.LogInfo("LlmRequestQueue initialized successfully");
         Logger.LogInfo("BrainCompiler initialized successfully");
+    }
+
+    private void SpawnInitialNpcs(PlayerController player)
+    {
+        var playerPos = new Vec3(player.GlobalPosition.X, player.GlobalPosition.Y, player.GlobalPosition.Z);
+        IReadOnlyList<NpcProfile> profiles;
+
+        string npcsPath = ProjectSettings.GlobalizePath("res://config/npcs.json");
+        if (File.Exists(npcsPath))
+        {
+            try
+            {
+                profiles = NpcProfileLoader.LoadFromFile(npcsPath);
+                Logger.LogInfo($"Loaded {profiles.Count} NPC profiles from '{npcsPath}'.");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Failed to load npcs.json: {ex.Message}. Falling back to default profiles.");
+                profiles = NpcProfileLoader.LoadDefaultProfiles();
+            }
+        }
+        else
+        {
+            string? found = NpcProfileLoader.FindConfigFile();
+            if (found != null && File.Exists(found))
+            {
+                profiles = NpcProfileLoader.LoadFromFile(found);
+                Logger.LogInfo($"Loaded {profiles.Count} NPC profiles from '{found}'.");
+            }
+            else
+            {
+                Logger.LogInfo("npcs.json not found. Using default NPC profiles.");
+                profiles = NpcProfileLoader.LoadDefaultProfiles();
+            }
+        }
+
+        foreach (var profile in profiles)
+        {
+            float targetX = playerPos.X + profile.HomeOffset.X;
+            float targetZ = playerPos.Z + profile.HomeOffset.Z;
+            float spawnY = playerPos.Y + profile.HomeOffset.Y;
+
+            if (TerrainGenerator != null)
+            {
+                float surfaceY = TerrainGenerator.GetHeight((int)MathF.Floor(targetX), (int)MathF.Floor(targetZ));
+                spawnY = surfaceY + 1.0f;
+            }
+
+            var spawnPos = new Vec3(targetX, spawnY, targetZ);
+            var npc = NpcManager.SpawnNpc(profile, spawnPos);
+            npc.Home = spawnPos;
+
+            // Give basic starter materials
+            npc.Inventory?.AddItem("stone", 20, out _);
+            npc.Inventory?.AddItem("oak_log", 20, out _);
+            npc.Inventory?.AddItem("dirt", 20, out _);
+
+            Logger.LogInfo($"Spawned NPC '{npc.Name}' ({npc.Personality}) at {spawnPos} with color {npc.AppearanceColor} running '{profile.InitialBrain ?? "idle"}'");
+        }
     }
 
     public override void _PhysicsProcess(double delta)

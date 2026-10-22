@@ -38,6 +38,7 @@ public partial class NpcNode : Node3D
         {
             NameTag.Text = State.Name;
         }
+        ApplyAppearance();
     }
 
     /// <summary>
@@ -49,9 +50,33 @@ public partial class NpcNode : Node3D
         GlobalPosition = new Vector3(state.Position.X, state.Position.Y, state.Position.Z);
         Rotation = new Vector3(0, state.Facing, 0);
         EnsureVisualHierarchy();
+        ApplyAppearance();
+    }
+
+    /// <summary>
+    /// Applies visual appearance customization (distinct shirt colour and name tag) from NpcState.
+    /// </summary>
+    public void ApplyAppearance()
+    {
+        if (State == null)
+        {
+            return;
+        }
+
         if (NameTag != null)
         {
-            NameTag.Text = state.Name;
+            NameTag.Text = State.Name;
+        }
+
+        if (TorsoMesh != null && !string.IsNullOrWhiteSpace(State.AppearanceColor))
+        {
+            if (NpcColor.TryParse(State.AppearanceColor, out var col))
+            {
+                TorsoMesh.MaterialOverride = new StandardMaterial3D
+                {
+                    AlbedoColor = new Color(col.R, col.G, col.B)
+                };
+            }
         }
     }
 

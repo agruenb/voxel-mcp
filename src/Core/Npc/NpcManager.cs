@@ -2,6 +2,7 @@ namespace VoxelKing.Core.Npc;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
@@ -136,11 +137,27 @@ public sealed class NpcManager : IDisposable
         float health = NpcState.DefaultMaxHealth,
         float facing = 0f,
         INpcMemory? memory = null,
-        IBehaviourArbiter? arbiter = null)
+        IBehaviourArbiter? arbiter = null,
+        string? personality = null,
+        IReadOnlyList<string>? skills = null,
+        string appearanceColor = "")
     {
         var id = _registry.GenerateNextId();
         var npcMemory = memory ?? new NpcMemory(BrainLimitsConfig);
-        var npc = new NpcState(id, name, position, profile, home, inventory, health, facing, npcMemory);
+        var npc = new NpcState(
+            id,
+            name,
+            position,
+            profile,
+            home,
+            inventory,
+            health,
+            facing,
+            npcMemory,
+            arbiter,
+            personality,
+            skills,
+            appearanceColor);
 
         _registry.Register(npc);
         _npcsById[id] = npc;
@@ -187,6 +204,127 @@ public sealed class NpcManager : IDisposable
         _logger?.LogDebug($"Spawned NPC '{name}' (ID {id}) at {position} in LOD {tier}");
 
         return npc;
+    }
+
+    /// <summary>
+    /// Spawns a new NPC based on an <see cref="NpcProfile"/> near a given spawn origin.
+    /// </summary>
+    public NpcState SpawnNpc(
+        NpcProfile profile,
+        Vec3 spawnOrigin,
+        IInventory? inventory = null,
+        float health = NpcState.DefaultMaxHealth,
+        float facing = 0f,
+        INpcMemory? memory = null,
+        IBehaviourArbiter? arbiter = null)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        Vec3 spawnPos = spawnOrigin + profile.HomeOffset;
+        var npc = SpawnNpc(
+            profile.Name,
+            spawnPos,
+            profile: profile.Personality,
+            home: spawnPos,
+            inventory: inventory,
+            health: health,
+            facing: facing,
+            memory: memory,
+            arbiter: arbiter,
+            personality: profile.Personality,
+            skills: profile.Skills,
+            appearanceColor: profile.AppearanceColor);
+
+        // Populate starting inventory if provided
+        if (profile.StartingInventory != null && npc.Inventory != null)
+        {
+            foreach (var kvp in profile.StartingInventory)
+            {
+                npc.Inventory.AddItem(kvp.Key, kvp.Value, out _);
+            }
+        }
+
+        // Load initial brain if specified and brain host is active
+        if (!string.IsNullOrWhiteSpace(profile.InitialBrain) && npc.BrainHost != null)
+        {
+            TryLoadInitialBrain(npc, profile.InitialBrain);
+        }
+
+        return npc;
+    }
+
+    /// <summary>
+    /// Spawns multiple NPCs based on the provided profiles near the given spawn origin.
+    /// </summary>
+    public IReadOnlyList<NpcState> SpawnNpcsFromProfiles(
+        IEnumerable<NpcProfile> profiles,
+        Vec3 spawnOrigin)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+        var spawned = new List<NpcState>();
+        foreach (var profile in profiles)
+        {
+            spawned.Add(SpawnNpc(profile, spawnOrigin));
+        }
+        return spawned;
+    }
+
+    private void TryLoadInitialBrain(NpcState npc, string brainIdentifier)
+    {
+        if (npc.BrainHost == null)
+        {
+            return;
+        }
+
+        // If it looks like raw Lua script (contains newlines or function/local keywords)
+        if (brainIdentifier.Contains('\n') || brainIdentifier.Contains("function ") || brainIdentifier.Contains("local "))
+        {
+            npc.BrainHost.LoadScript(brainIdentifier, null);
+            npc.CurrentTaskSummary = "Custom Brain";
+            return;
+        }
+
+        // Otherwise try finding it in BrainExampleLibrary
+        string? examplesDir = BrainExampleLibrary.FindExamplesDirectory();
+        if (examplesDir != null)
+        {
+            try
+            {
+                var examples = BrainExampleLibrary.LoadFromDirectory(examplesDir);
+                string cleanName = brainIdentifier.EndsWith(".lua", StringComparison.OrdinalIgnoreCase)
+                    ? Path.GetFileNameWithoutExtension(brainIdentifier)
+                    : brainIdentifier;
+
+                var match = examples.FirstOrDefault(e =>
+                    e.IsValid &&
+                    (string.Equals(e.Name, cleanName, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(e.FileName, brainIdentifier, StringComparison.OrdinalIgnoreCase)));
+
+                if (match != null)
+                {
+                    bool loaded = npc.BrainHost.LoadScript(match.Script, null);
+                    if (loaded)
+                    {
+                        npc.CurrentTaskSummary = !string.IsNullOrWhiteSpace(match.Instruction)
+                            ? match.Instruction
+                            : $"Running {match.Name}";
+                        _logger?.LogInfo($"Loaded initial brain '{match.Name}' for NPC '{npc.Name}'");
+                    }
+                    else
+                    {
+                        _logger?.LogWarning($"Failed to load initial brain '{match.Name}' for NPC '{npc.Name}': {npc.BrainHost.LastError}");
+                    }
+                }
+                else
+                {
+                    _logger?.LogWarning($"Initial brain '{brainIdentifier}' not found in examples library.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning($"Exception loading initial brain '{brainIdentifier}' for NPC '{npc.Name}': {ex.Message}");
+            }
+        }
     }
 
     /// <summary>

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Bob",
+    "personality": "grumpy but helpful farmer and builder",
+    "skills": ["farming", "building", "mining"],
+    "appearanceColor": "#3D7BEB",
+    "homeOffset": { "x": 3.0, "y": 0.0, "z": 2.0 },
+    "initialBrain": "farm_loop"
+  },
+  {
+    "name": "Alice",
+    "personality": "cheerful and energetic woodcutter and gatherer",
+    "skills": ["woodcutting", "foraging", "crafting"],
+    "appearanceColor": "#2ECC71",
+    "homeOffset": { "x": -3.5, "y": 0.0, "z": 3.0 },
+    "initialBrain": "gather_logs"
+  },
+  {
+    "name": "Charlie",
+    "personality": "diligent architect and stonemason constructing fortifications",
+    "skills": ["masonry", "building", "architecture"],
+    "appearanceColor": "#E74C3C",
+    "homeOffset": { "x": 4.5, "y": 0.0, "z": -2.5 },
+    "initialBrain": "build_wall"
+  },
+  {
+    "name": "Diana",
+    "personality": "cautious and vigilant village guard keeping watch over the area",
+    "skills": ["guarding", "patrol", "scouting"],
+    "appearanceColor": "#9B59B6",
+    "homeOffset": { "x": -4.0, "y": 0.0, "z": -3.5 },
+    "initialBrain": "guard_area"
+  },
+  {
+    "name": "Edward",
+    "personality": "friendly and dependable courier delivering supplies to storage",
+    "skills": ["hauling", "organizing", "delivery"],
+    "appearanceColor": "#F39C12",
+    "homeOffset": { "x": 1.5, "y": 0.0, "z": -4.5 },
+    "initialBrain": "deliver_items"
+  },
+  {
+    "name": "Fiona",
+    "personality": "inquisitive explorer and loyal companion following friends",
+    "skills": ["following", "pathfinding", "exploration"],
+    "appearanceColor": "#1ABC9C",
+    "homeOffset": { "x": -2.0, "y": 0.0, "z": -2.0 },
+    "initialBrain": "follow_player"
+  }
+]

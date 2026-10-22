@@ -44,6 +44,11 @@ public sealed class NpcState : IEntity
     public IReadOnlyList<string> Skills { get; set; } = Array.Empty<string>();
 
     /// <summary>
+    /// Hex color code or name representing this NPC's appearance/clothing color (e.g. "#3D7BEB").
+    /// </summary>
+    public string AppearanceColor { get; set; } = string.Empty;
+
+    /// <summary>
     /// Short summary of the currently active task assigned to this NPC, or null if idle.
     /// </summary>
     public string? CurrentTaskSummary { get; set; }
@@ -256,7 +261,8 @@ public sealed class NpcState : IEntity
         INpcMemory? memory = null,
         Arbiter.IBehaviourArbiter? arbiter = null,
         string? personality = null,
-        IReadOnlyList<string>? skills = null)
+        IReadOnlyList<string>? skills = null,
+        string appearanceColor = "")
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -268,6 +274,7 @@ public sealed class NpcState : IEntity
         Profile = profile;
         Personality = personality ?? (string.IsNullOrEmpty(profile) ? string.Empty : profile);
         Skills = skills ?? Array.Empty<string>();
+        AppearanceColor = appearanceColor ?? string.Empty;
         Position = position;
         Velocity = Vec3.Zero;
         Home = home ?? position;
