@@ -27,6 +27,7 @@ public class WorldActionTests
         world.SetBlock(pos, stone);
 
         var npc = new NpcState(new EntityId(1), "Miner", new Vec3(0.5f, 1.0f, 0.5f));
+        int initialCobblestone = npc.Inventory.CountItem("cobblestone");
         Assert.Equal(0, npc.Inventory.CountItem("stone"));
 
         var action = new MineAction(npc, pos, world, blocks, containers, duration: 0f);
@@ -34,7 +35,7 @@ public class WorldActionTests
 
         Assert.True(action.Status.IsSucceeded);
         Assert.Equal(blocks.AirId, world.GetBlock(pos));
-        Assert.Equal(1, npc.Inventory.CountItem("cobblestone"));
+        Assert.Equal(initialCobblestone + 1, npc.Inventory.CountItem("cobblestone"));
     }
 
     [Fact]

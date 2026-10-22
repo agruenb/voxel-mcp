@@ -178,7 +178,7 @@ public class PromptBuilderTests
         Assert.Contains("skills=[forestry, woodworking]", prompt.UserContent);
         Assert.Contains("Current task: \"Chopping trees\" (running 2 min)", prompt.UserContent);
         Assert.Contains("Known places: home, forest_camp", prompt.UserContent);
-        Assert.Contains("Inventory: apple x2, oak_log x8", prompt.UserContent);
+        Assert.Contains("Inventory: apple x2, cobblestone x50, oak_log x8", prompt.UserContent);
         Assert.Contains("Recent events (newest last, max 2):", prompt.UserContent);
         Assert.Contains("- Player Adrian said: \"watch out for wolves\" (1 min ago)", prompt.UserContent);
         Assert.Contains("Instructor: Player \"Adrian\"", prompt.UserContent);

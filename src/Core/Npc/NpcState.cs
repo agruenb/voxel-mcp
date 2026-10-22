@@ -17,6 +17,16 @@ public sealed class NpcState : IEntity
 {
     public const float DefaultMaxHealth = 100f;
 
+    /// <summary>
+    /// Default starting block material given to newly initialized NPCs.
+    /// </summary>
+    public const string DefaultStartingMaterial = "cobblestone";
+
+    /// <summary>
+    /// Default quantity of cobblestone given to newly initialized NPCs.
+    /// </summary>
+    public const int DefaultStartingCobblestone = 50;
+
     public EntityId Id { get; init; }
     public EntityKind Kind => EntityKind.Npc;
     public string Name { get; set; }
@@ -198,7 +208,7 @@ public sealed class NpcState : IEntity
         Velocity = Vec3.Zero;
         Home = home ?? position;
         HasExplicitHome = home != null;
-        Inventory = inventory ?? new Inventory(36);
+        Inventory = inventory ?? CreateDefaultInventory();
         Health = Math.Clamp(health, 0f, MaxHealth);
         Facing = facing;
         Memory = memory ?? new NpcMemory();
@@ -253,5 +263,15 @@ public sealed class NpcState : IEntity
     {
         if (amount <= 0f) return;
         Health = Math.Min(MaxHealth, Health + amount);
+    }
+
+    /// <summary>
+    /// Creates a default starting inventory populated with 50 cobblestone.
+    /// </summary>
+    public static IInventory CreateDefaultInventory()
+    {
+        var inventory = new Inventory(36);
+        inventory.AddItem(DefaultStartingMaterial, DefaultStartingCobblestone, out _);
+        return inventory;
     }
 }
