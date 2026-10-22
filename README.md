@@ -50,5 +50,6 @@ In Core, configuration is injected into services via `IGameConfigProvider` / `IG
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — System boundaries, threading model, and architectural rules.
 - [FEATURES.md](docs/FEATURES.md) — Implementation roadmap and feature status backlog.
+- [COMMANDS.md](docs/COMMANDS.md) — In-game debug console commands, controls, and shortcut hotkeys.
 - [LUA_BRAIN_API.md](docs/LUA_BRAIN_API.md) — Sandboxed Lua API surface for NPC brains.
 - [LLM_INTEGRATION.md](docs/LLM_INTEGRATION.md) — Gemini prompt pipeline and Lua compiler.
