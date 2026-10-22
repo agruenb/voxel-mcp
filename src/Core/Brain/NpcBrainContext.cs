@@ -142,4 +142,23 @@ public sealed class NpcBrainContext : INpcBrainContext
         LastActionRequest = request;
         return request;
     }
+
+    /// <inheritdoc />
+    public void ClearLastActionRequest()
+    {
+        LastActionRequest = null;
+    }
+
+    /// <inheritdoc />
+    public void ResetRestartRequest()
+    {
+        RestartRequested = false;
+    }
+
+    /// <inheritdoc />
+    public void ResetDone()
+    {
+        IsDone = false;
+        DoneSummary = null;
+    }
 }

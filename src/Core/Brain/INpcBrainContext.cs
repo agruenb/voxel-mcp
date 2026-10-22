@@ -92,4 +92,19 @@ public interface INpcBrainContext
     /// Initiates a blocking action request, converting arguments and recording the request.
     /// </summary>
     ActionRequest BeginAction(string actionName, CallbackArguments args);
+
+    /// <summary>
+    /// Clears the last recorded action request.
+    /// </summary>
+    void ClearLastActionRequest();
+
+    /// <summary>
+    /// Resets the restart requested flag after a restart has been processed.
+    /// </summary>
+    void ResetRestartRequest();
+
+    /// <summary>
+    /// Resets the done flag and summary when loading a new script or restarting.
+    /// </summary>
+    void ResetDone();
 }

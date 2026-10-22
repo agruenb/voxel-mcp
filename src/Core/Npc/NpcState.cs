@@ -2,6 +2,7 @@ namespace VoxelKing.Core.Npc;
 
 using System;
 using System.Collections.Generic;
+using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
@@ -142,6 +143,11 @@ public sealed class NpcState : IEntity
     /// Behaviour arbiter governing layer prioritization (Reflex > Task > Idle) for this NPC.
     /// </summary>
     public Arbiter.IBehaviourArbiter? Arbiter { get; set; }
+
+    /// <summary>
+    /// Brain host managing Lua script execution for this NPC, or null if no brain is initialized.
+    /// </summary>
+    public IBrainHost? BrainHost { get; set; }
 
     public NpcState(
         EntityId id,

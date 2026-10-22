@@ -3,6 +3,7 @@ namespace VoxelKing.Core.Npc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
@@ -144,9 +145,24 @@ public sealed class NpcManager
         else if (EnableArbiters && _voxelWorld != null)
         {
             var reflex = new ReflexLayer(npc, _voxelWorld);
-            var task = new StubTaskLayer();
+            var actionFactory = new DefaultActionFactory(
+                _voxelWorld,
+                BlockRegistry,
+                PathfindingService,
+                _registry,
+                ContainerManager,
+                _eventBus,
+                this);
+            var brainHost = new BrainHost(
+                npc,
+                actionFactory: actionFactory,
+                limitsConfig: BrainLimitsConfig,
+                entityRegistry: _registry,
+                eventBus: _eventBus,
+                logger: _logger);
+            npc.BrainHost = brainHost;
             var idle = new IdleLayer(npc, _voxelWorld, PathfindingService, _registry, _eventBus);
-            npc.Arbiter = new BehaviourArbiter(npc, reflex, task, idle);
+            npc.Arbiter = new BehaviourArbiter(npc, reflex, brainHost, idle);
         }
 
         _eventBus?.Publish(new EntitySpawned(npc));
