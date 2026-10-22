@@ -71,6 +71,18 @@ public sealed class NpcManager : IDisposable
     public IReadOnlyCollection<NpcState> ActiveNpcs => _npcsById.Values;
     public IReadOnlyCollection<ItemEntity> ActiveItems => _itemsById.Values;
 
+    /// <summary>
+    /// Attempts to retrieve an active NPC by its entity ID.
+    /// </summary>
+    public bool TryGetNpc(EntityId id, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NpcState? npc) =>
+        _npcsById.TryGetValue(id, out npc);
+
+    /// <summary>
+    /// Gets an active NPC by its entity ID, or returns null if not found.
+    /// </summary>
+    public NpcState? GetNpc(EntityId id) =>
+        _npcsById.TryGetValue(id, out var npc) ? npc : null;
+
     public NpcManager(
         EntityRegistry registry,
         NpcConfig? config = null,

@@ -51,6 +51,14 @@ public interface IBrainHost : ITaskLayer, IDisposable
     bool LoadScript(string script, EntityId? instructorId = null);
 
     /// <summary>
+    /// Swaps the current brain script for a newly validated Lua script (LLM_INTEGRATION §3).
+    /// </summary>
+    /// <param name="script">The Lua 5.2 script source.</param>
+    /// <param name="instructorId">Optional entity ID that assigned this task.</param>
+    /// <returns>True if script loaded and validated successfully; false otherwise.</returns>
+    bool Swap(string script, EntityId? instructorId = null);
+
+    /// <summary>
     /// Restarts the main coroutine from the beginning with the current script.
     /// State and progress must be recovered from memory.
     /// </summary>

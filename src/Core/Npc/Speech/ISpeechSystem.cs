@@ -43,6 +43,7 @@ public interface ISpeechSystem : IDisposable
     /// <param name="text">The message text.</param>
     /// <param name="hearingRadius">Radius in blocks within which entities can hear this speech.</param>
     /// <param name="timestamp">Optional simulation timestamp (defaults to CurrentTime).</param>
+    /// <param name="force">If true, bypasses per-entity rate limiting (e.g. for dialogue responses).</param>
     /// <returns>True if spoken successfully; false if rate-limited or invalid.</returns>
     bool Speak(
         EntityId speakerId,
@@ -50,5 +51,6 @@ public interface ISpeechSystem : IDisposable
         Vec3 position,
         string text,
         float? hearingRadius = null,
-        double? timestamp = null);
+        double? timestamp = null,
+        bool force = false);
 }

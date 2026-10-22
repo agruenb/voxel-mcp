@@ -60,7 +60,8 @@ public sealed class SpeechSystem : ISpeechSystem
         Vec3 position,
         string text,
         float? hearingRadius = null,
-        double? timestamp = null)
+        double? timestamp = null,
+        bool force = false)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -70,8 +71,8 @@ public sealed class SpeechSystem : ISpeechSystem
         double time = timestamp ?? CurrentTime;
         float radius = hearingRadius ?? DefaultHearingRadius;
 
-        // 1. Rate limiting: 1 per RateLimitSeconds per entity
-        if (_lastSpeechTimes.TryGetValue(speakerId, out double lastTime))
+        // 1. Rate limiting: 1 per RateLimitSeconds per entity (unless forced)
+        if (!force && _lastSpeechTimes.TryGetValue(speakerId, out double lastTime))
         {
             if (time - lastTime < RateLimitSeconds)
             {

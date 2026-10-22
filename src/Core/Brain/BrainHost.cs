@@ -125,6 +125,9 @@ public sealed class BrainHost : IBrainHost
     }
 
     /// <inheritdoc />
+    public bool Swap(string script, EntityId? instructorId = null) => LoadScript(script, instructorId);
+
+    /// <inheritdoc />
     public bool LoadScript(string script, EntityId? instructorId = null)
     {
         ArgumentNullException.ThrowIfNull(script);

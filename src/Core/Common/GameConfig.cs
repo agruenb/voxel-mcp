@@ -96,6 +96,7 @@ public sealed record LlmConfig
     public int MaxOutputTokens { get; set; } = 2048;
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetries { get; set; } = 2;
+    public int MaxRepairRetries { get; set; } = 2;
     public int MaxConcurrentRequests { get; set; } = 2;
     public int RequestsPerMinute { get; set; } = 60;
     public string ApiKey { get; set; } = string.Empty;

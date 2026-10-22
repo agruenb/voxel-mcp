@@ -50,6 +50,9 @@ public partial class GameRoot : Node
     public ILuaRuntime LuaRuntime { get; private set; } = null!;
     public ILlmClient LlmClient { get; private set; } = null!;
     public LlmRequestQueue LlmQueue { get; private set; } = null!;
+    public IPromptBuilder PromptBuilder { get; private set; } = null!;
+    public IBrainValidator BrainValidator { get; private set; } = null!;
+    public IBrainCompiler BrainCompiler { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -151,6 +154,19 @@ public partial class GameRoot : Node
             requestLogger,
             loggerFactory.CreateLogger<LlmRequestQueue>());
 
+        PromptBuilder = new PromptBuilder(new LuaApiRegistry());
+        BrainValidator = new BrainValidator(config.BrainLimits);
+        BrainCompiler = new BrainCompiler(
+            LlmQueue,
+            PromptBuilder,
+            BrainValidator,
+            Dispatcher,
+            NpcManager.SpeechSystem,
+            EntityRegistry,
+            NpcManager,
+            config.Llm,
+            loggerFactory.CreateLogger<BrainCompiler>());
+
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
         if (ChunkStreamer.GetParent() == null)
         {
@@ -248,6 +264,7 @@ public partial class GameRoot : Node
         Logger.LogInfo("NpcManager and EntityRegistry initialized");
         Logger.LogInfo("NpcViewManager, DebugPathRenderer, DebugConsole, and DebugBrainConsole initialized");
         Logger.LogInfo("LlmRequestQueue initialized successfully");
+        Logger.LogInfo("BrainCompiler initialized successfully");
     }
 
     public override void _PhysicsProcess(double delta)
