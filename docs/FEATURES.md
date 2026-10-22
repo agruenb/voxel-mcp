@@ -86,7 +86,7 @@ flowchart LR
 | F-304 | Sandbox security test suite | M3 | F-303 | Done |
 | F-305 | Example brain library | M3 | F-303 | Done |
 | F-306 | Debug brain console | M3 | F-303, F-108 | Done |
-| F-307 | Brain validator (compile + dry run) | M3 | F-303 | Todo |
+| F-307 | Brain validator (compile + dry run) | M3 | F-303 | Done |
 | F-401 | Prompt builder | M4 | F-302, F-305 | Todo |
 | F-402 | LLM client abstraction, Gemini & mock clients | M4 | F-002 | Todo |
 | F-403 | LLM request queue | M4 | F-402 | Todo |

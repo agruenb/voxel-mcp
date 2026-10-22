@@ -110,6 +110,8 @@ public sealed class LuaApiRegistry
                     $"blocking function 'npc.{actionName}' cannot be called from an event handler");
             }
 
+            ValidateActionArguments(actionName, args);
+
             var request = context.BeginAction(actionName, args);
             return DynValue.NewString(request.ActionName);
         });
@@ -281,5 +283,95 @@ public sealed class LuaApiRegistry
         return string.IsNullOrEmpty(entry.Parameters)
             ? $"{entry.Name}()"
             : $"{entry.Name}({entry.Parameters})";
+    }
+
+    private static void ValidateActionArguments(string actionName, CallbackArguments args)
+    {
+        switch (actionName)
+        {
+            case "go_to":
+                if (args.Count < 2) throw new ScriptRuntimeException("bad argument #1 to 'npc.go_to' (pos expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                if (args.Count > 2 && args[2].Type != DataType.Nil && args[2].Type != DataType.Table)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.go_to' (table expected, got {args[2].Type.ToLuaTypeString()})");
+                break;
+
+            case "go_near":
+                if (args.Count < 3) throw new ScriptRuntimeException("bad arguments to 'npc.go_near' (pos and dist expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                if (args[2].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.go_near' (number expected, got {args[2].Type.ToLuaTypeString()})");
+                break;
+
+            case "follow":
+                if (args.Count < 4) throw new ScriptRuntimeException("bad arguments to 'npc.follow' (entity_id, dist, seconds expected)");
+                if (args[1].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #1 to 'npc.follow' (number expected, got {args[1].Type.ToLuaTypeString()})");
+                if (args[2].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.follow' (number expected, got {args[2].Type.ToLuaTypeString()})");
+                if (args[3].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #3 to 'npc.follow' (number expected, got {args[3].Type.ToLuaTypeString()})");
+                break;
+
+            case "mine":
+                if (args.Count < 2) throw new ScriptRuntimeException("bad argument #1 to 'npc.mine' (pos expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                break;
+
+            case "place":
+                if (args.Count < 3) throw new ScriptRuntimeException("bad arguments to 'npc.place' (pos and block_id expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                if (args[2].Type != DataType.String)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.place' (string expected, got {args[2].Type.ToLuaTypeString()})");
+                break;
+
+            case "pick_up":
+                if (args.Count < 2) throw new ScriptRuntimeException("bad argument #1 to 'npc.pick_up' (entity_id expected)");
+                if (args[1].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #1 to 'npc.pick_up' (number expected, got {args[1].Type.ToLuaTypeString()})");
+                break;
+
+            case "drop":
+                if (args.Count < 3) throw new ScriptRuntimeException("bad arguments to 'npc.drop' (item_id and count expected)");
+                if (args[1].Type != DataType.String)
+                    throw new ScriptRuntimeException($"bad argument #1 to 'npc.drop' (string expected, got {args[1].Type.ToLuaTypeString()})");
+                if (args[2].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.drop' (number expected, got {args[2].Type.ToLuaTypeString()})");
+                break;
+
+            case "give":
+                if (args.Count < 4) throw new ScriptRuntimeException("bad arguments to 'npc.give' (entity_id, item_id, count expected)");
+                if (args[1].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #1 to 'npc.give' (number expected, got {args[1].Type.ToLuaTypeString()})");
+                if (args[2].Type != DataType.String)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.give' (string expected, got {args[2].Type.ToLuaTypeString()})");
+                if (args[3].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #3 to 'npc.give' (number expected, got {args[3].Type.ToLuaTypeString()})");
+                break;
+
+            case "deposit":
+                if (args.Count < 4) throw new ScriptRuntimeException("bad arguments to 'npc.deposit' (pos, item_id, count expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                if (args[2].Type != DataType.String)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.deposit' (string expected, got {args[2].Type.ToLuaTypeString()})");
+                if (args[3].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #3 to 'npc.deposit' (number expected, got {args[3].Type.ToLuaTypeString()})");
+                break;
+
+            case "withdraw":
+                if (args.Count < 4) throw new ScriptRuntimeException("bad arguments to 'npc.withdraw' (pos, item_id, count expected)");
+                LuaValueConverter.ToVec3i(args[1]);
+                if (args[2].Type != DataType.String)
+                    throw new ScriptRuntimeException($"bad argument #2 to 'npc.withdraw' (string expected, got {args[2].Type.ToLuaTypeString()})");
+                if (args[3].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #3 to 'npc.withdraw' (number expected, got {args[3].Type.ToLuaTypeString()})");
+                break;
+
+            case "wait":
+                if (args.Count < 2) throw new ScriptRuntimeException("bad argument #1 to 'npc.wait' (seconds expected)");
+                if (args[1].Type != DataType.Number)
+                    throw new ScriptRuntimeException($"bad argument #1 to 'npc.wait' (number expected, got {args[1].Type.ToLuaTypeString()})");
+                break;
+        }
     }
 }

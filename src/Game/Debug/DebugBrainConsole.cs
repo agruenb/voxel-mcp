@@ -500,17 +500,21 @@ public partial class DebugBrainConsole : CanvasLayer
 
     private void BuildUI()
     {
+        // Full screen root container to guarantee proper responsive centering across all viewport sizes
+        var rootContainer = new CenterContainer
+        {
+            Name = "BrainConsoleCenterContainer",
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        rootContainer.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(rootContainer);
+
         _mainPanel = new PanelContainer
         {
             Name = "BrainConsolePanel",
-            CustomMinimumSize = new Vector2(980, 620)
+            CustomMinimumSize = new Vector2(880, 580)
         };
-        AddChild(_mainPanel);
-
-        // Center on screen
-        _mainPanel.SetAnchorsPreset(Control.LayoutPreset.Center);
-        _mainPanel.GrowHorizontal = Control.GrowDirection.Both;
-        _mainPanel.GrowVertical = Control.GrowDirection.Both;
+        rootContainer.AddChild(_mainPanel);
 
         var panelStyle = new StyleBoxFlat
         {
@@ -523,7 +527,11 @@ public partial class DebugBrainConsole : CanvasLayer
             CornerRadiusTopLeft = 10,
             CornerRadiusTopRight = 10,
             CornerRadiusBottomLeft = 10,
-            CornerRadiusBottomRight = 10
+            CornerRadiusBottomRight = 10,
+            ContentMarginLeft = 14,
+            ContentMarginTop = 12,
+            ContentMarginRight = 14,
+            ContentMarginBottom = 12
         };
         _mainPanel.AddThemeStyleboxOverride("panel", panelStyle);
 
@@ -563,7 +571,7 @@ public partial class DebugBrainConsole : CanvasLayer
         // --- LEFT COLUMN: NPC Info & Controls ---
         var leftVBox = new VBoxContainer
         {
-            CustomMinimumSize = new Vector2(340, 0)
+            CustomMinimumSize = new Vector2(320, 0)
         };
         leftVBox.AddThemeConstantOverride("separation", 8);
         hsplit.AddChild(leftVBox);
@@ -577,7 +585,10 @@ public partial class DebugBrainConsole : CanvasLayer
 
         _npcDropdown = new OptionButton
         {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            ClipText = true,
+            FitToLongestItem = false,
+            CustomMinimumSize = new Vector2(180, 32)
         };
         _npcDropdown.ItemSelected += index =>
         {
@@ -615,7 +626,11 @@ public partial class DebugBrainConsole : CanvasLayer
             CornerRadiusTopLeft = 6,
             CornerRadiusTopRight = 6,
             CornerRadiusBottomLeft = 6,
-            CornerRadiusBottomRight = 6
+            CornerRadiusBottomRight = 6,
+            ContentMarginLeft = 8,
+            ContentMarginTop = 6,
+            ContentMarginRight = 8,
+            ContentMarginBottom = 6
         };
         npcInfoPanel.AddThemeStyleboxOverride("panel", infoBoxStyle);
         leftVBox.AddChild(npcInfoPanel);
@@ -623,7 +638,7 @@ public partial class DebugBrainConsole : CanvasLayer
         _npcInfoLabel = new Label
         {
             AutowrapMode = TextServer.AutowrapMode.Word,
-            CustomMinimumSize = new Vector2(320, 110)
+            CustomMinimumSize = new Vector2(300, 100)
         };
         npcInfoPanel.AddChild(_npcInfoLabel);
 
@@ -631,7 +646,13 @@ public partial class DebugBrainConsole : CanvasLayer
         var exampleHeaderLabel = new Label { Text = "Example Brain Library:", Modulate = new Color(0.8f, 0.85f, 1f) };
         leftVBox.AddChild(exampleHeaderLabel);
 
-        _exampleDropdown = new OptionButton();
+        _exampleDropdown = new OptionButton
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            ClipText = true,
+            FitToLongestItem = false,
+            CustomMinimumSize = new Vector2(180, 32)
+        };
         _exampleDropdown.ItemSelected += _ => LoadSelectedExample();
         leftVBox.AddChild(_exampleDropdown);
 

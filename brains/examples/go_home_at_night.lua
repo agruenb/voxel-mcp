@@ -40,7 +40,6 @@ end
 
 function on_attacked(attacker_id, damage)
     npc.say("Help! I am under attack!")
-    npc.go_near(npc.home(), 2)
 end
 
 function on_player_nearby(player_id)
