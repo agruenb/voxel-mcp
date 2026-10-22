@@ -80,7 +80,7 @@ flowchart LR
 | F-207 | NPC memory | M2 | F-201 | Done |
 | F-208 | Behaviour arbiter, idle & reflex layers | M2 | F-205, F-206 | Done |
 | F-209 | Speech system & speech bubbles | M3 | F-303 | Todo |
-| F-301 | Lua sandbox (MoonSharp) | M3 | F-002 | Todo |
+| F-301 | Lua sandbox (MoonSharp) | M3 | F-002 | Done |
 | F-302 | Lua API registry & bindings | M3 | F-301, F-205, F-206, F-207 | Todo |
 | F-303 | BrainHost (coroutines, budgets, handlers) | M3 | F-302 | Todo |
 | F-304 | Sandbox security test suite | M3 | F-303 | Todo |

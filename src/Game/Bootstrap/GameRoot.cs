@@ -9,6 +9,7 @@ using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
+using VoxelKing.Core.Brain;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Debug;
 using VoxelKing.Game.Npc;
@@ -42,6 +43,7 @@ public partial class GameRoot : Node
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
+    public ILuaRuntime LuaRuntime { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -123,6 +125,8 @@ public partial class GameRoot : Node
             ContainerManager = ContainerManager,
             BlockRegistry = BlockRegistry
         };
+
+        LuaRuntime = new MoonSharpRuntime(config.BrainLimits);
 
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
         if (ChunkStreamer.GetParent() == null)
