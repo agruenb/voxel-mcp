@@ -36,7 +36,7 @@ public class BrainCompiler : IBrainCompiler
     private readonly ILogger? _logger;
 
     private readonly object _lock = new();
-    private readonly Dictionary<EntityId, CancellationTokenSource> _activeCompilations = new();
+    private readonly Dictionary<EntityId, (CancellationTokenSource Cts, NpcState Npc)> _activeCompilations = new();
 
     /// <inheritdoc/>
     public event Action<NpcState, CompileResult>? ResultApplied;
@@ -132,19 +132,19 @@ public class BrainCompiler : IBrainCompiler
         CancellationTokenSource linkedCts;
         lock (_lock)
         {
-            if (_activeCompilations.TryGetValue(npc.Id, out var existingCts))
+            if (_activeCompilations.TryGetValue(npc.Id, out var existing))
             {
                 try
                 {
-                    existingCts.Cancel();
-                    existingCts.Dispose();
+                    existing.Cts.Cancel();
+                    existing.Cts.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
                 }
             }
 
-            _activeCompilations[npc.Id] = npcCts;
+            _activeCompilations[npc.Id] = (npcCts, npc);
             linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, npcCts.Token);
         }
 
@@ -154,11 +154,14 @@ public class BrainCompiler : IBrainCompiler
 
             // 1. Build initial prompt
             string effectiveInstructor = instructorName ?? "Player";
+            npc.ConversationState = NpcConversationState.Thinking;
+            npc.AddConversationTurn(effectiveInstructor, instruction);
+
             var builtPrompt = _promptBuilder.BuildPrompt(
                 npc,
                 instruction,
                 instructor: effectiveInstructor,
-                conversation: conversation,
+                conversation: conversation ?? (npc.ConversationHistory.Count > 0 ? npc.ConversationHistory : null),
                 currentTime: currentTime);
 
             var messages = new List<LlmMessage>
@@ -189,6 +192,10 @@ public class BrainCompiler : IBrainCompiler
             {
                 if (response.Error?.Kind == LlmErrorKind.Cancelled || linkedCts.IsCancellationRequested)
                 {
+                    if (npc.ConversationState == NpcConversationState.Thinking)
+                    {
+                        npc.ConversationState = NpcConversationState.None;
+                    }
                     return CompileResult.Cancelled("Compilation was cancelled.");
                 }
 
@@ -374,13 +381,17 @@ public class BrainCompiler : IBrainCompiler
         }
         catch (OperationCanceledException)
         {
+            if (npc.ConversationState == NpcConversationState.Thinking)
+            {
+                npc.ConversationState = NpcConversationState.None;
+            }
             return CompileResult.Cancelled("Compilation was cancelled.");
         }
         finally
         {
             lock (_lock)
             {
-                if (_activeCompilations.TryGetValue(npc.Id, out var currentCts) && currentCts == npcCts)
+                if (_activeCompilations.TryGetValue(npc.Id, out var current) && current.Cts == npcCts)
                 {
                     _activeCompilations.Remove(npc.Id);
                 }
@@ -433,10 +444,12 @@ public class BrainCompiler : IBrainCompiler
         ArgumentNullException.ThrowIfNull(result);
 
         double time = currentTime ?? (_speechSystem?.CurrentTime ?? 0);
+        npc.ConversationState = NpcConversationState.Replying;
 
         // 1. Spoken feedback per LLM_INTEGRATION §3 handling table
         if (!string.IsNullOrWhiteSpace(result.Reply))
         {
+            npc.AddConversationTurn(npc.Name, result.Reply);
             if (_speechSystem != null)
             {
                 _speechSystem.Speak(
@@ -498,6 +511,7 @@ public class BrainCompiler : IBrainCompiler
                 break;
         }
 
+        npc.ConversationState = NpcConversationState.None;
         ResultApplied?.Invoke(npc, result);
     }
 
@@ -505,14 +519,16 @@ public class BrainCompiler : IBrainCompiler
     public bool Cancel(EntityId npcId)
     {
         bool found = false;
+        NpcState? targetNpc = null;
         lock (_lock)
         {
-            if (_activeCompilations.TryGetValue(npcId, out var cts))
+            if (_activeCompilations.TryGetValue(npcId, out var active))
             {
+                targetNpc = active.Npc;
                 try
                 {
-                    cts.Cancel();
-                    cts.Dispose();
+                    active.Cts.Cancel();
+                    active.Cts.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -524,6 +540,24 @@ public class BrainCompiler : IBrainCompiler
         }
 
         bool queueCancelled = _requestQueue.Cancel(npcId);
+
+        if (targetNpc == null)
+        {
+            if (_npcManager != null && _npcManager.TryGetNpc(npcId, out var mNpc))
+            {
+                targetNpc = mNpc;
+            }
+            else if (_entityRegistry != null && _entityRegistry.TryGet(npcId, out var entity) && entity is NpcState regNpc)
+            {
+                targetNpc = regNpc;
+            }
+        }
+
+        if (targetNpc != null && (targetNpc.ConversationState == NpcConversationState.Thinking || targetNpc.ConversationState == NpcConversationState.Listening))
+        {
+            targetNpc.ConversationState = NpcConversationState.None;
+        }
+
         return found || queueCancelled;
     }
 
@@ -532,15 +566,20 @@ public class BrainCompiler : IBrainCompiler
     {
         lock (_lock)
         {
-            foreach (var cts in _activeCompilations.Values)
+            foreach (var active in _activeCompilations.Values)
             {
                 try
                 {
-                    cts.Cancel();
-                    cts.Dispose();
+                    active.Cts.Cancel();
+                    active.Cts.Dispose();
                 }
                 catch (ObjectDisposedException)
                 {
+                }
+
+                if (active.Npc.ConversationState == NpcConversationState.Thinking || active.Npc.ConversationState == NpcConversationState.Listening)
+                {
+                    active.Npc.ConversationState = NpcConversationState.None;
                 }
             }
 

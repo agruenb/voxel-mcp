@@ -16,6 +16,7 @@ public partial class NpcViewManager : Node3D
     private IDisposable? _spawnSub;
     private IDisposable? _despawnSub;
     private IDisposable? _spokeSub;
+    private IDisposable? _conversationSub;
     private NpcManager? _npcManager;
 
     public IReadOnlyDictionary<EntityId, NpcNode> Views => _views;
@@ -30,6 +31,7 @@ public partial class NpcViewManager : Node3D
         _spawnSub = eventBus.Subscribe<EntitySpawned>(OnEntitySpawned);
         _despawnSub = eventBus.Subscribe<EntityDespawned>(OnEntityDespawned);
         _spokeSub = eventBus.Subscribe<EntitySpoke>(OnEntitySpoke);
+        _conversationSub = eventBus.Subscribe<NpcConversationStateChanged>(OnNpcConversationStateChanged);
 
         // Synchronize with any NPCs already spawned
         foreach (var npc in npcManager.ActiveNpcs)
@@ -80,13 +82,30 @@ public partial class NpcViewManager : Node3D
         }
     }
 
+    private void OnNpcConversationStateChanged(NpcConversationStateChanged e)
+    {
+        if (_views.TryGetValue(e.NpcId, out var node))
+        {
+            if (e.NewState == NpcConversationState.Thinking)
+            {
+                node.SetThinking(true);
+            }
+            else if (e.OldState == NpcConversationState.Thinking)
+            {
+                node.SetThinking(false);
+            }
+        }
+    }
+
     public override void _ExitTree()
     {
         _spawnSub?.Dispose();
         _despawnSub?.Dispose();
         _spokeSub?.Dispose();
+        _conversationSub?.Dispose();
         _spawnSub = null;
         _despawnSub = null;
         _spokeSub = null;
+        _conversationSub = null;
     }
 }

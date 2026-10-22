@@ -4,6 +4,7 @@ using System;
 using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Npc;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.UI;
@@ -51,6 +52,8 @@ public partial class PlayerController : CharacterBody3D
     public NamedPlaces? NamedPlaces { get; set; }
     public ChestUI? ChestUI { get; set; }
     public HotbarUI? HotbarUI { get; set; }
+    public DialogueUI? DialogueUI { get; set; }
+    public NpcManager? NpcManager { get; set; }
 
     public Node3D Head { get; private set; } = null!;
     public Camera3D Camera { get; private set; } = null!;
@@ -257,6 +260,20 @@ public partial class PlayerController : CharacterBody3D
                 return;
             }
 
+            if (keyEvent.Keycode == Key.E)
+            {
+                if (DialogueUI != null && !DialogueUI.IsOpen)
+                {
+                    var lookedAtNpc = FindLookedAtNpc(DialogueUI.InteractionReachDistance);
+                    if (lookedAtNpc != null)
+                    {
+                        DialogueUI.OpenDialogue(lookedAtNpc);
+                        GetViewport().SetInputAsHandled();
+                        return;
+                    }
+                }
+            }
+
             if (keyEvent.Keycode == Key.F)
             {
                 ToggleFly();
@@ -346,6 +363,78 @@ public partial class PlayerController : CharacterBody3D
         {
             ResetMining();
         }
+
+        // Update HUD dialogue interaction prompt if applicable
+        if (DialogueUI != null && !IsInputLocked)
+        {
+            DialogueUI.UpdateTargetNpc(FindLookedAtNpc(DialogueUI.InteractionReachDistance));
+        }
+        else if (DialogueUI != null && DialogueUI.IsOpen)
+        {
+            DialogueUI.UpdateTargetNpc(null);
+        }
+    }
+
+    /// <summary>
+    /// Finds the active NPC closest to the crosshair center within the specified maximum distance,
+    /// ensuring the NPC is not obstructed by solid voxels.
+    /// </summary>
+    public NpcState? FindLookedAtNpc(float maxDistance = 4.0f, float minDotProduct = 0.80f)
+    {
+        if (NpcManager == null)
+        {
+            return null;
+        }
+
+        var cam = Camera ?? Head?.GetNodeOrNull<Camera3D>("Camera3D") ?? GetNodeOrNull<Camera3D>("Head/Camera3D");
+        if (cam == null)
+        {
+            return null;
+        }
+
+        ForceUpdateTransform();
+        Head?.ForceUpdateTransform();
+        cam.ForceUpdateTransform();
+
+        Vector3 camPos = cam.GlobalPosition;
+        Vector3 camFwd = -cam.GlobalTransform.Basis.Z.Normalized();
+
+        NpcState? bestNpc = null;
+        float bestDot = minDotProduct;
+
+        foreach (var npc in NpcManager.ActiveNpcs)
+        {
+            if (!npc.IsActive)
+            {
+                continue;
+            }
+
+            Vector3 npcCenter = new Vector3(npc.Position.X, npc.Position.Y + 0.9f, npc.Position.Z);
+            Vector3 toNpc = npcCenter - camPos;
+            float dist = toNpc.Length();
+
+            if (dist > maxDistance || dist < 0.2f)
+            {
+                continue;
+            }
+
+            Vector3 dirToNpc = toNpc / dist;
+            float dot = camFwd.Dot(dirToNpc);
+
+            if (dot > bestDot)
+            {
+                // Occlusion check: if voxel raycast hit a block closer than NPC, it is occluded
+                if (CurrentRaycast.IsHit && CurrentRaycast.Distance < (dist - 0.4f))
+                {
+                    continue;
+                }
+
+                bestDot = dot;
+                bestNpc = npc;
+            }
+        }
+
+        return bestNpc;
     }
 
     private void PerformRaycast()

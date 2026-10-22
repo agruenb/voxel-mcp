@@ -89,7 +89,7 @@ public class GeminiClientTests
 
         // Verify request headers and URL
         Assert.NotNull(handler.LastRequest);
-        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", handler.LastRequest.RequestUri?.ToString());
+        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", handler.LastRequest.RequestUri?.ToString());
         Assert.True(handler.LastRequest.Headers.TryGetValues("x-goog-api-key", out var keyValues));
         Assert.Contains("test-key-123", keyValues);
 

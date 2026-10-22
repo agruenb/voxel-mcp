@@ -15,6 +15,11 @@ public partial class SpeechBubble3D : Node3D
 
     private float _timeRemaining;
     private float _totalDuration = DefaultDuration;
+    private bool _isThinking;
+    private float _thinkingTimer;
+    private int _thinkingDots = 1;
+
+    public bool IsThinking => _isThinking;
 
     public override void _Ready()
     {
@@ -48,8 +53,33 @@ public partial class SpeechBubble3D : Node3D
     }
 
     /// <summary>
+    /// Displays an animated "..." thinking bubble that pulses until thinking ends.
+    /// </summary>
+    public void SetThinking(bool isThinking)
+    {
+        _isThinking = isThinking;
+        EnsureLabelCreated();
+
+        if (_isThinking)
+        {
+            _thinkingTimer = 0f;
+            _thinkingDots = 1;
+            Label.Text = ".";
+            Label.Modulate = Colors.White;
+            Visible = true;
+        }
+        else
+        {
+            if (Visible && (Label.Text == "." || Label.Text == ".." || Label.Text == "..."))
+            {
+                Visible = false;
+            }
+        }
+    }
+
+    /// <summary>
     /// Displays a speech message in the bubble with an optional duration.
-    /// Resets fade out countdown.
+    /// Resets fade out countdown and clears thinking state.
     /// </summary>
     public void ShowSpeech(string text, float duration = DefaultDuration)
     {
@@ -58,6 +88,7 @@ public partial class SpeechBubble3D : Node3D
             return;
         }
 
+        _isThinking = false;
         EnsureLabelCreated();
 
         Label.Text = $"\"{text.Trim()}\"";
@@ -69,7 +100,25 @@ public partial class SpeechBubble3D : Node3D
 
     public override void _Process(double delta)
     {
-        if (!Visible || _timeRemaining <= 0f)
+        if (!Visible)
+        {
+            return;
+        }
+
+        if (_isThinking)
+        {
+            _thinkingTimer += (float)delta;
+            if (_thinkingTimer >= 0.35f)
+            {
+                _thinkingTimer = 0f;
+                _thinkingDots = (_thinkingDots % 3) + 1;
+                Label.Text = new string('.', _thinkingDots);
+            }
+            Label.Modulate = Colors.White;
+            return;
+        }
+
+        if (_timeRemaining <= 0f)
         {
             return;
         }

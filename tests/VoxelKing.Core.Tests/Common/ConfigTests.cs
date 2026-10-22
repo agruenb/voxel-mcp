@@ -40,7 +40,7 @@ public class ConfigTests
         Assert.Equal(64, config.BrainLimits.MaxMemoryKeys);
         Assert.Equal(16384, config.BrainLimits.MaxMemoryTotalBytes);
 
-        Assert.Equal("gemini-2.5-flash", config.Llm.Model);
+        Assert.Equal("gemini-3.8-flash", config.Llm.Model);
         Assert.Equal(0.3f, config.Llm.Temperature);
         Assert.Equal(2048, config.Llm.MaxOutputTokens);
         Assert.Equal(30, config.Llm.TimeoutSeconds);
@@ -106,7 +106,7 @@ public class ConfigTests
             "loadedChunkRadius": 4
           },
           "llm": {
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3.8-flash",
             "apiKey": "base-key"
           }
         }
@@ -135,7 +135,7 @@ public class ConfigTests
 
         // Preserved from base
         Assert.Equal(100, config.World.Seed);
-        Assert.Equal("gemini-2.5-flash", config.Llm.Model);
+        Assert.Equal("gemini-3.8-flash", config.Llm.Model);
 
         // Preserved from default
         Assert.Equal(32, config.World.ChunkSize);
@@ -192,7 +192,7 @@ public class ConfigTests
           },
           /* LLM section */
           "llm": {
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3.8-flash",
           },
         }
         """;

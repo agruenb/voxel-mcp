@@ -253,4 +253,14 @@ public partial class NpcNode : Node3D
         EnsureVisualHierarchy();
         SpeechBubble?.ShowSpeech(text, duration);
     }
+
+    /// <summary>
+    /// Updates whether the floating speech bubble shows an animated thinking indicator.
+    /// </summary>
+    public void SetThinking(bool isThinking)
+    {
+        EnsureVisualHierarchy();
+        SpeechBubble?.SetThinking(isThinking);
+    }
 }
+

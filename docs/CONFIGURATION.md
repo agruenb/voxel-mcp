@@ -59,7 +59,7 @@ Controls execution limits and storage quotas for NPC Lua behaviour brains.
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `model` | string | `"gemini-2.5-flash"` | Gemini model used for compiling player dialogue instructions into Lua scripts. |
+| `model` | string | `"gemini-3.8-flash"` | Gemini model used for compiling player dialogue instructions into Lua scripts. |
 | `temperature` | float | `0.3` | Model generation sampling temperature (lower = more deterministic code generation). |
 | `maxOutputTokens` | int | `2048` | Maximum output tokens in the JSON response from Gemini. |
 | `timeoutSeconds` | int | `30` | Network timeout for Gemini API calls in seconds. |

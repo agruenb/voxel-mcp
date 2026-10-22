@@ -129,4 +129,41 @@ public class FallbackLlmClientTests
         Assert.Single(warningEvents);
         Assert.Contains("rejected", warningEvents[0].Message);
     }
+
+    [Fact]
+    public async Task GenerateAsync_ServiceUnavailable503_WarnsAndFallsBackToMock()
+    {
+        var eventBus = new EventBus();
+        var warningEvents = new List<LlmWarningEvent>();
+        eventBus.Subscribe<LlmWarningEvent>(warningEvents.Add);
+
+        string serviceUnavailableJson = @"
+        {
+          ""error"": {
+            ""code"": 503,
+            ""message"": ""This model is currently experiencing high demand."",
+            ""status"": ""UNAVAILABLE""
+          }
+        }";
+
+        var handler = new MockHttpMessageHandler(HttpStatusCode.ServiceUnavailable, serviceUnavailableJson);
+        using var httpClient = new HttpClient(handler);
+        var config = new LlmConfig { ApiKey = "valid-key" };
+        var primaryClient = new GeminiClient(httpClient, config);
+        var mockClient = new MockLlmClient();
+
+        var fallbackClient = new FallbackLlmClient(primaryClient, mockClient, config, eventBus);
+
+        var request = new LlmRequest("sys", "gather logs");
+        var response = await fallbackClient.GenerateAsync(request);
+
+        // Fallback occurred
+        Assert.True(fallbackClient.IsUsingMock);
+        Assert.True(response.IsSuccess);
+        Assert.NotNull(response.Content);
+        Assert.Contains("chop down trees", response.Content.Reply);
+
+        Assert.Single(warningEvents);
+        Assert.Contains("unavailable", warningEvents[0].Message);
+    }
 }

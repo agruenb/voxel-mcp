@@ -30,7 +30,7 @@
     "memoryEventCapacity": 50
   },
   "llm": {
-    "model": "gemini-2.5-flash",
+    "model": "gemini-3.8-flash",
     "temperature": 0.3,
     "maxOutputTokens": 2048,
     "timeoutSeconds": 30,

@@ -91,7 +91,7 @@ public sealed record BrainLimitsConfig
 /// </summary>
 public sealed record LlmConfig
 {
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-3.8-flash";
     public float Temperature { get; set; } = 0.3f;
     public int MaxOutputTokens { get; set; } = 2048;
     public int TimeoutSeconds { get; set; } = 30;

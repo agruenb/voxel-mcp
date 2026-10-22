@@ -61,11 +61,14 @@ public sealed class FallbackLlmClient : ILlmClient
         // Case 2: API key configured -> call primary client
         var response = await _primaryClient.GenerateAsync(request, cancellationToken).ConfigureAwait(false);
 
-        // Case 3: Invalid API key returned by remote API -> fallback to mock with warning
-        if (!response.IsSuccess && response.Error?.Kind == LlmErrorKind.InvalidApiKey)
+        // Case 3: Remote API failure (invalid key, service unavailable, etc.) -> fallback to mock with warning
+        if (!response.IsSuccess && response.Error != null && response.Error.Kind != LlmErrorKind.Cancelled)
         {
             IsUsingMock = true;
-            EmitWarningOnce($"Gemini API key rejected ({response.Error.Message}). Falling back to Mock LLM client.");
+            string reason = response.Error.Kind == LlmErrorKind.InvalidApiKey
+                ? $"Gemini API key rejected ({response.Error.Message})"
+                : $"Gemini service unavailable ({response.Error.Message})";
+            EmitWarningOnce($"{reason}. Falling back to Mock LLM client.");
             return await _mockClient.GenerateAsync(request, cancellationToken).ConfigureAwait(false);
         }
 

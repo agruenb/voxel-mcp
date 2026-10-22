@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Llm;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc.Actions;
 using VoxelKing.Core.Npc.Memory;
@@ -51,6 +52,69 @@ public sealed class NpcState : IEntity
     /// Simulation timestamp in seconds when the currently active task started.
     /// </summary>
     public double TaskStartTime { get; set; }
+
+    private NpcConversationState _conversationState = NpcConversationState.None;
+    private readonly List<ConversationTurn> _conversationHistory = new();
+
+    /// <summary>
+    /// Current conversation state of this NPC during interactive dialogue (F-405).
+    /// </summary>
+    public NpcConversationState ConversationState
+    {
+        get => _conversationState;
+        set => SetConversationState(value);
+    }
+
+    /// <summary>
+    /// Fired whenever this NPC's conversation state transitions between states.
+    /// Parameters: (NpcState npc, NpcConversationState oldState, NpcConversationState newState).
+    /// </summary>
+    public event Action<NpcState, NpcConversationState, NpcConversationState>? ConversationStateChanged;
+
+    /// <summary>
+    /// Recent interactive conversation history turns between player/instructor and this NPC.
+    /// </summary>
+    public IReadOnlyList<ConversationTurn> ConversationHistory => _conversationHistory;
+
+    /// <summary>
+    /// Sets the conversation state and fires the <see cref="ConversationStateChanged"/> event if changed.
+    /// </summary>
+    public void SetConversationState(NpcConversationState newState)
+    {
+        if (_conversationState == newState)
+        {
+            return;
+        }
+
+        var oldState = _conversationState;
+        _conversationState = newState;
+        ConversationStateChanged?.Invoke(this, oldState, newState);
+    }
+
+    /// <summary>
+    /// Records a spoken conversation turn in this NPC's recent conversation history.
+    /// </summary>
+    public void AddConversationTurn(string speaker, string message)
+    {
+        if (string.IsNullOrWhiteSpace(speaker) || string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        _conversationHistory.Add(new ConversationTurn(speaker.Trim(), message.Trim()));
+        if (_conversationHistory.Count > 20)
+        {
+            _conversationHistory.RemoveAt(0);
+        }
+    }
+
+    /// <summary>
+    /// Clears all recorded recent conversation history for this NPC.
+    /// </summary>
+    public void ClearConversationHistory()
+    {
+        _conversationHistory.Clear();
+    }
 
     public Vec3 Position { get; set; }
     public Vec3 Velocity { get; set; }

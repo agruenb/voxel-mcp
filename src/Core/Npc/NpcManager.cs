@@ -181,6 +181,8 @@ public sealed class NpcManager : IDisposable
             npc.Arbiter = new BehaviourArbiter(npc, reflex, brainHost, idle);
         }
 
+        npc.ConversationStateChanged += OnNpcConversationStateChanged;
+
         _eventBus?.Publish(new EntitySpawned(npc));
         _logger?.LogDebug($"Spawned NPC '{name}' (ID {id}) at {position} in LOD {tier}");
 
@@ -197,6 +199,7 @@ public sealed class NpcManager : IDisposable
             return false;
         }
 
+        npc.ConversationStateChanged -= OnNpcConversationStateChanged;
         RemoveNpcFromScheduling(npc);
         _registry.Unregister(id);
 
@@ -204,6 +207,11 @@ public sealed class NpcManager : IDisposable
         _logger?.LogDebug($"Despawned NPC '{npc.Name}' (ID {id})");
 
         return true;
+    }
+
+    private void OnNpcConversationStateChanged(NpcState npc, NpcConversationState oldState, NpcConversationState newState)
+    {
+        _eventBus?.Publish(new NpcConversationStateChanged(npc.Id, oldState, newState));
     }
 
     /// <summary>
@@ -301,13 +309,21 @@ public sealed class NpcManager : IDisposable
             {
                 npc.Arbiter?.PhysicsTick(dt);
 
-                if (npc.CurrentAction != null && npc.CurrentAction.Status.IsRunning)
+                if (npc.ConversationState == NpcConversationState.Listening || npc.ConversationState == NpcConversationState.Thinking)
                 {
-                    npc.CurrentAction.Tick(dt);
+                    // Action and navigation path following are paused during interactive conversation
+                    npc.Velocity = npc.Velocity with { X = 0f, Z = 0f };
                 }
                 else
                 {
-                    npc.PathFollower?.Update(dt);
+                    if (npc.CurrentAction != null && npc.CurrentAction.Status.IsRunning)
+                    {
+                        npc.CurrentAction.Tick(dt);
+                    }
+                    else
+                    {
+                        npc.PathFollower?.Update(dt);
+                    }
                 }
 
                 if (_voxelWorld != null)
@@ -382,6 +398,11 @@ public sealed class NpcManager : IDisposable
         foreach (var npc in tickingNpcs)
         {
             if (!npc.IsActive)
+            {
+                continue;
+            }
+
+            if (npc.ConversationState == NpcConversationState.Listening || npc.ConversationState == NpcConversationState.Thinking)
             {
                 continue;
             }

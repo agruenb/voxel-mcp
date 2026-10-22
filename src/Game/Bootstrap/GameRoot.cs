@@ -47,6 +47,7 @@ public partial class GameRoot : Node
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
     public ChatLogUI? ChatLogUI { get; private set; }
+    public DialogueUI? DialogueUI { get; private set; }
     public ILuaRuntime LuaRuntime { get; private set; } = null!;
     public ILlmClient LlmClient { get; private set; } = null!;
     public LlmRequestQueue LlmQueue { get; private set; } = null!;
@@ -246,6 +247,28 @@ public partial class GameRoot : Node
             PathRenderer = DebugPathRenderer
         };
         AddChild(DebugConsole);
+
+        DialogueUI = new DialogueUI { Name = "DialogueUI" };
+        AddChild(DialogueUI);
+        if (player != null)
+        {
+            DialogueUI.Setup(player, NpcManager, BrainCompiler, PlayerEntity);
+            player.DialogueUI = DialogueUI;
+            player.NpcManager = NpcManager;
+
+            if (NpcManager.ActiveNpcs.Count == 0)
+            {
+                var spawnPos = new Vec3(player.GlobalPosition.X + 2.5f, player.GlobalPosition.Y, player.GlobalPosition.Z + 2.5f);
+                var bob = NpcManager.SpawnNpc(
+                    "Bob",
+                    spawnPos,
+                    profile: "grumpy but helpful farmer and builder",
+                    home: spawnPos);
+                bob.Personality = "grumpy but helpful farmer and builder";
+                bob.Skills = new[] { "farming", "mining", "building" };
+                Logger.LogInfo($"Spawned default NPC 'Bob' at {spawnPos}");
+            }
+        }
 
         DebugBrainConsole = new DebugBrainConsole
         {
