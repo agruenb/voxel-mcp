@@ -43,6 +43,7 @@ public partial class GameRoot : Node
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
+    public ChatLogUI? ChatLogUI { get; private set; }
     public ILuaRuntime LuaRuntime { get; private set; } = null!;
 
     public override void _Ready()
@@ -189,6 +190,10 @@ public partial class GameRoot : Node
         AddChild(NpcViewManager);
         NpcViewManager.Initialize(EventBus, NpcManager);
 
+        ChatLogUI = new ChatLogUI { Name = "ChatLogUI" };
+        AddChild(ChatLogUI);
+        ChatLogUI.Initialize(EventBus);
+
         DebugPathRenderer = new DebugPathRenderer { Name = "DebugPathRenderer" };
         AddChild(DebugPathRenderer);
         DebugPathRenderer.Initialize(NpcManager);
@@ -238,6 +243,7 @@ public partial class GameRoot : Node
 
     public override void _ExitTree()
     {
+        NpcManager?.Dispose();
         _fileLogSink?.Dispose();
         _fileLogSink = null;
     }

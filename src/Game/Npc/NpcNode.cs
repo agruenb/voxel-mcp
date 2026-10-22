@@ -25,6 +25,7 @@ public partial class NpcNode : Node3D
     public Node3D RightLegPivot { get; private set; } = null!;
     public MeshInstance3D RightLegMesh { get; private set; } = null!;
     public Label3D NameTag { get; private set; } = null!;
+    public SpeechBubble3D SpeechBubble { get; private set; } = null!;
 
     private double _walkTime;
     private double _idleTime;
@@ -211,6 +212,14 @@ public partial class NpcNode : Node3D
                 Text = State?.Name ?? "NPC"
             };
             AddChild(NameTag);
+
+            // Floating Speech Bubble at Y = 2.30
+            SpeechBubble = new SpeechBubble3D
+            {
+                Name = "SpeechBubble",
+                Position = new Vector3(0, 2.30f, 0)
+            };
+            AddChild(SpeechBubble);
         }
         else
         {
@@ -225,8 +234,23 @@ public partial class NpcNode : Node3D
             RightLegPivot = Visuals.GetNode<Node3D>("RightLegPivot");
             RightLegMesh = RightLegPivot.GetNode<MeshInstance3D>("RightLeg");
             NameTag = GetNode<Label3D>("NameTag");
+            SpeechBubble = GetNodeOrNull<SpeechBubble3D>("SpeechBubble")!;
+            if (SpeechBubble == null)
+            {
+                SpeechBubble = new SpeechBubble3D { Name = "SpeechBubble", Position = new Vector3(0, 2.30f, 0) };
+                AddChild(SpeechBubble);
+            }
         }
 
         _isBuilt = true;
+    }
+
+    /// <summary>
+    /// Displays a speech message in the speech bubble floating above the NPC.
+    /// </summary>
+    public void ShowSpeechBubble(string text, float duration = SpeechBubble3D.DefaultDuration)
+    {
+        EnsureVisualHierarchy();
+        SpeechBubble?.ShowSpeech(text, duration);
     }
 }

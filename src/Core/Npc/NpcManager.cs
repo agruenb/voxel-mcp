@@ -10,12 +10,13 @@ using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc.Arbiter;
 using VoxelKing.Core.Npc.Memory;
 using VoxelKing.Core.Npc.Perception;
+using VoxelKing.Core.Npc.Speech;
 using VoxelKing.Core.Voxel;
 
 /// <summary>
 /// Manages NPC lifecycle, physics updates, distance-based LOD tiers, and staggered brain tick scheduling.
 /// </summary>
-public sealed class NpcManager
+public sealed class NpcManager : IDisposable
 {
     public const float DefaultFreezeDistance = 192.0f;
     public const float DefaultItemPickupRadius = 1.5f;
@@ -58,6 +59,7 @@ public sealed class NpcManager
     public ContainerManager? ContainerManager { get; set; }
     public IBlockRegistry? BlockRegistry { get; set; }
     public IPerceptionService? PerceptionService { get; set; }
+    public ISpeechSystem? SpeechSystem { get; set; }
     public BrainLimitsConfig? BrainLimitsConfig { get; set; }
     public bool EnableArbiters { get; set; } = true;
 
@@ -77,7 +79,8 @@ public sealed class NpcManager
         ILogger? logger = null,
         IPathfindingService? pathfindingService = null,
         IPerceptionService? perceptionService = null,
-        BrainLimitsConfig? brainLimitsConfig = null)
+        BrainLimitsConfig? brainLimitsConfig = null,
+        ISpeechSystem? speechSystem = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _config = config ?? new NpcConfig();
@@ -86,6 +89,7 @@ public sealed class NpcManager
         _logger = logger;
         PathfindingService = pathfindingService;
         PerceptionService = perceptionService ?? (voxelWorld != null ? new PerceptionService(voxelWorld, _registry) : null);
+        SpeechSystem = speechSystem ?? (eventBus != null ? new SpeechSystem(_registry, eventBus, _logger) : null);
         BrainLimitsConfig = brainLimitsConfig;
 
         int physicsHz = Math.Max(1, _config.PhysicsTickRateHz);
@@ -246,6 +250,11 @@ public sealed class NpcManager
     public void PhysicsTick(float dt)
     {
         TotalPhysicsTicks++;
+
+        if (SpeechSystem != null)
+        {
+            SpeechSystem.CurrentTime += dt;
+        }
 
         // 1. Update dropped item entities
         if (_itemsById.Count > 0)
@@ -572,5 +581,11 @@ public sealed class NpcManager
         }
 
         return minPhase;
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        SpeechSystem?.Dispose();
     }
 }
