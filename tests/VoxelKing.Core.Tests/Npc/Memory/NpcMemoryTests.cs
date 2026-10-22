@@ -532,5 +532,54 @@ public class NpcMemoryTests
         Assert.Equal(15f, evt.Damage);
     }
 
+    [Fact]
+    public void NpcMemory_CustomBrainLimitsConfig_EnforcesCustomLimits()
+    {
+        var customConfig = new BrainLimitsConfig
+        {
+            MaxMemoryKeys = 5,
+            MaxMemoryTotalBytes = 500,
+            MaxMemoryKeyLength = 10,
+            MaxMemoryStringValueLength = 50,
+            MaxMemoryPlaces = 2,
+            MaxMemoryPlaceNameLength = 8,
+            MemoryEventCapacity = 4
+        };
+
+        var memory = new NpcMemory(customConfig);
+
+        Assert.Equal(5, memory.KeyLimit);
+        Assert.Equal(500, memory.TotalSizeLimitBytes);
+        Assert.Equal(4, memory.EventCapacity);
+
+        // Key length limit (10)
+        Assert.Throws<ArgumentException>(() => memory.Set("longer_than_10", 1));
+
+        // String value length limit (50)
+        Assert.Throws<ArgumentException>(() => memory.Set("short_k", new string('a', 51)));
+
+        // Place name length limit (8)
+        Assert.Throws<ArgumentException>(() => memory.RememberPlace("longer_place", Vec3i.Zero));
+
+        // Key count limit (5)
+        for (int i = 0; i < 5; i++)
+        {
+            memory.Set($"k{i}", i);
+        }
+        Assert.Throws<InvalidOperationException>(() => memory.Set("k_overflow", 100));
+
+        // Places limit (2)
+        memory.RememberPlace("p1", Vec3i.Zero);
+        memory.RememberPlace("p2", Vec3i.Zero);
+        Assert.Throws<InvalidOperationException>(() => memory.RememberPlace("p3", Vec3i.Zero));
+
+        // Event capacity (4)
+        for (int i = 0; i < 6; i++)
+        {
+            memory.RecordSpeechSpoke($"msg {i}");
+        }
+        Assert.Equal(4, memory.EventCount);
+    }
+
     #endregion
 }

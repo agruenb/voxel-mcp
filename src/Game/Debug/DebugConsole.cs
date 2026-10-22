@@ -333,6 +333,7 @@ public partial class DebugConsole : CanvasLayer
                 Log("  stop_npc <id|name>        - Stop an NPC");
                 Log("  nav_to <id|name> [x y z]  - Navigate an NPC to coordinates or target block");
                 Log("  mine_npc <id|name> [x y z]- Mine block at coordinates");
+                Log("  walk_and_mine <id|name> [x y z] - Walk near block and mine it");
                 Log("  place_npc <id|name> <blk> [x y z] - Place block from NPC inventory");
                 Log("  say_npc <id|name> <text>  - Make NPC speak");
                 Log("  wait_npc <id|name> <secs> - Make NPC wait");
@@ -429,7 +430,9 @@ public partial class DebugConsole : CanvasLayer
                 foreach (var npc in list)
                 {
                     string navStatus = npc.PathFollower != null ? $", Nav={npc.PathFollower.Status}" : "";
-                    Log($"  ID {npc.Id}: '{npc.Name}' at {npc.Position} (Grounded={npc.IsOnGround}, Wall={npc.IsOnWall}, LOD={npc.LodTier}{navStatus})");
+                    string layerStr = npc.Arbiter != null ? $", Layer={npc.Arbiter.ActiveLayer}" : "";
+                    string actionStr = npc.CurrentAction != null ? $", Action={npc.CurrentAction.Name}" : "";
+                    Log($"  ID {npc.Id}: '{npc.Name}' at {npc.Position} (Grounded={npc.IsOnGround}, Wall={npc.IsOnWall}, LOD={npc.LodTier}{layerStr}{actionStr}{navStatus})");
                 }
                 break;
             }
@@ -530,6 +533,61 @@ public partial class DebugConsole : CanvasLayer
                 mineAction.Start();
                 target.CurrentAction = mineAction;
                 Log($"Started MineAction on '{target.Name}' targeting {targetBlock}. Status: {mineAction.Status}");
+                break;
+            }
+
+            case "walk_and_mine":
+            {
+                if (parts.Length < 2)
+                {
+                    Log("Usage: walk_and_mine <id|name> [x y z]");
+                    break;
+                }
+
+                var target = ResolveNpc(parts[1]);
+                if (target == null)
+                {
+                    Log($"NPC '{parts[1]}' not found.");
+                    break;
+                }
+
+                Vec3i targetBlock;
+                if (parts.Length >= 5 &&
+                    int.TryParse(parts[2], out int mx) &&
+                    int.TryParse(parts[3], out int my) &&
+                    int.TryParse(parts[4], out int mz))
+                {
+                    targetBlock = new Vec3i(mx, my, mz);
+                }
+                else if (Player != null && Player.CurrentRaycast.IsHit)
+                {
+                    targetBlock = Player.CurrentRaycast.BlockPos;
+                }
+                else
+                {
+                    var facing = target.GetFacingDirection();
+                    targetBlock = (target.Position + (facing * 4.0f)).FloorToInt();
+                }
+
+                var blocks = NpcManager.BlockRegistry ?? (VoxelWorld as VoxelWorld)?.BlockRegistry;
+                if (blocks == null)
+                {
+                    Log("No block registry available.");
+                    break;
+                }
+
+                var action = new WalkAndMineAction(
+                    target,
+                    targetBlock,
+                    VoxelWorld,
+                    blocks,
+                    NpcManager.ContainerManager,
+                    PathfindingService,
+                    NpcManager.EventBus);
+
+                action.Start();
+                target.CurrentAction = action;
+                Log($"Started WalkAndMineAction on '{target.Name}' to mine {targetBlock}. Status: {action.Status}");
                 break;
             }
 

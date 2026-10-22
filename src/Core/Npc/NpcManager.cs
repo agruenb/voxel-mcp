@@ -6,6 +6,7 @@ using System.Linq;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
+using VoxelKing.Core.Npc.Arbiter;
 using VoxelKing.Core.Npc.Memory;
 using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
@@ -56,6 +57,8 @@ public sealed class NpcManager
     public ContainerManager? ContainerManager { get; set; }
     public IBlockRegistry? BlockRegistry { get; set; }
     public IPerceptionService? PerceptionService { get; set; }
+    public BrainLimitsConfig? BrainLimitsConfig { get; set; }
+    public bool EnableArbiters { get; set; } = true;
 
     public int TotalBrainTicks { get; private set; }
     public int TotalPhysicsTicks { get; private set; }
@@ -72,7 +75,8 @@ public sealed class NpcManager
         IEventBus? eventBus = null,
         ILogger? logger = null,
         IPathfindingService? pathfindingService = null,
-        IPerceptionService? perceptionService = null)
+        IPerceptionService? perceptionService = null,
+        BrainLimitsConfig? brainLimitsConfig = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _config = config ?? new NpcConfig();
@@ -81,6 +85,7 @@ public sealed class NpcManager
         _logger = logger;
         PathfindingService = pathfindingService;
         PerceptionService = perceptionService ?? (voxelWorld != null ? new PerceptionService(voxelWorld, _registry) : null);
+        BrainLimitsConfig = brainLimitsConfig;
 
         int physicsHz = Math.Max(1, _config.PhysicsTickRateHz);
         int brainHz = Math.Max(1, _config.BrainTickRateHz);
@@ -113,10 +118,12 @@ public sealed class NpcManager
         IInventory? inventory = null,
         float health = NpcState.DefaultMaxHealth,
         float facing = 0f,
-        INpcMemory? memory = null)
+        INpcMemory? memory = null,
+        IBehaviourArbiter? arbiter = null)
     {
         var id = _registry.GenerateNextId();
-        var npc = new NpcState(id, name, position, profile, home, inventory, health, facing, memory);
+        var npcMemory = memory ?? new NpcMemory(BrainLimitsConfig);
+        var npc = new NpcState(id, name, position, profile, home, inventory, health, facing, npcMemory);
 
         _registry.Register(npc);
         _npcsById[id] = npc;
@@ -128,6 +135,18 @@ public sealed class NpcManager
         if (PerceptionService != null)
         {
             npc.Perception = PerceptionService.For(npc);
+        }
+
+        if (arbiter != null)
+        {
+            npc.Arbiter = arbiter;
+        }
+        else if (EnableArbiters && _voxelWorld != null)
+        {
+            var reflex = new ReflexLayer(npc, _voxelWorld);
+            var task = new StubTaskLayer();
+            var idle = new IdleLayer(npc, _voxelWorld, PathfindingService, _registry, _eventBus);
+            npc.Arbiter = new BehaviourArbiter(npc, reflex, task, idle);
         }
 
         _eventBus?.Publish(new EntitySpawned(npc));
@@ -243,6 +262,8 @@ public sealed class NpcManager
         {
             foreach (var npc in _npcsById.Values)
             {
+                npc.Arbiter?.PhysicsTick(dt);
+
                 if (npc.CurrentAction != null && npc.CurrentAction.Status.IsRunning)
                 {
                     npc.CurrentAction.Tick(dt);
@@ -320,8 +341,13 @@ public sealed class NpcManager
                 continue;
             }
 
+            float elapsedSinceLastBrainTick = npc.TimeSinceLastBrainTick > 0f
+                ? npc.TimeSinceLastBrainTick
+                : (1.0f / Math.Max(1, _config.BrainTickRateHz));
+
             npc.BrainTickCount++;
             npc.TimeSinceLastBrainTick = 0f;
+            npc.Arbiter?.Tick(elapsedSinceLastBrainTick);
             NpcBrainTicked?.Invoke(npc);
         }
 

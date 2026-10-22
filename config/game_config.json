@@ -15,34 +15,18 @@
     "sayRateLimitSeconds": 2.0
   },
   "brainLimits": {
-    // Instruction quota per brain tick (main coroutine) before forcing a yield to next frame
     "maxInstructionsPerTick": 2000,
-    // Maximum consecutive forced yields without any action before aborting with 'busy loop' error
     "maxConsecutiveForcedYields": 50,
-    // Instruction quota per event handler invocation (e.g. on_heard)
     "maxInstructionsPerHandler": 5000,
-    // Instruction quota for compiling/executing top-level script chunk
     "maxTopLevelChunkInstructions": 10000,
-    // Maximum Lua behaviour script file size in bytes (8 KB)
     "maxScriptSizeBytes": 8192,
-    // Maximum character length allowed in an NPC speech bubble / say() call
     "maxSayLength": 200,
-
-    // Maximum number of distinct keys stored in an NPC's persistent KV store
     "maxMemoryKeys": 64,
-    // Maximum total memory usage in bytes across all keys and values in KV store (16 KB)
     "maxMemoryTotalBytes": 16384,
-    // Maximum character length for an individual key name in KV store
     "maxMemoryKeyLength": 64,
-    // Maximum character length for a string value stored in KV store
     "maxMemoryStringValueLength": 4096,
-
-    // Maximum number of named places an NPC can remember (e.g. 'home', 'player_chest')
     "maxMemoryPlaces": 64,
-    // Maximum character length of a named place identifier
     "maxMemoryPlaceNameLength": 64,
-
-    // Maximum number of events retained in the FIFO event log ring buffer for prompt generation
     "memoryEventCapacity": 50
   },
   "llm": {

@@ -16,13 +16,28 @@ using VoxelKing.Core.Common;
 /// </summary>
 public sealed class NpcMemory : INpcMemory
 {
-    public const int MaxKeys = 64;
-    public const int MaxTotalSizeBytes = 16 * 1024; // 16 KB
-    public const int MaxKeyLength = 64;
-    public const int MaxStringValueLength = 4096;
-    public const int MaxPlaces = 64;
-    public const int MaxPlaceNameLength = 64;
+    public const int DefaultMaxKeys = 64;
+    public const int DefaultMaxTotalSizeBytes = 16 * 1024; // 16 KB
+    public const int DefaultMaxKeyLength = 64;
+    public const int DefaultMaxStringValueLength = 4096;
+    public const int DefaultMaxPlaces = 64;
+    public const int DefaultMaxPlaceNameLength = 64;
     public const int DefaultEventCapacity = 50;
+
+    // Backward-compatible static aliases
+    public const int MaxKeys = DefaultMaxKeys;
+    public const int MaxTotalSizeBytes = DefaultMaxTotalSizeBytes;
+    public const int MaxKeyLength = DefaultMaxKeyLength;
+    public const int MaxStringValueLength = DefaultMaxStringValueLength;
+    public const int MaxPlaces = DefaultMaxPlaces;
+    public const int MaxPlaceNameLength = DefaultMaxPlaceNameLength;
+
+    public int KeyLimit { get; }
+    public int TotalSizeLimitBytes { get; }
+    public int KeyLengthLimit { get; }
+    public int StringValueLengthLimit { get; }
+    public int PlacesLimit { get; }
+    public int PlaceNameLengthLimit { get; }
 
     private readonly Dictionary<string, object> _kvStore = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _entrySizes = new(StringComparer.Ordinal);
@@ -42,9 +57,23 @@ public sealed class NpcMemory : INpcMemory
     public int EventCount => _events.Count;
     public int EventCapacity => _events.Capacity;
 
-    public NpcMemory(int eventCapacity = DefaultEventCapacity)
+    public NpcMemory(BrainLimitsConfig? config = null, int? eventCapacity = null)
     {
-        _events = new RingBuffer<NpcMemoryEvent>(eventCapacity > 0 ? eventCapacity : DefaultEventCapacity);
+        var cfg = config ?? new BrainLimitsConfig();
+        KeyLimit = cfg.MaxMemoryKeys;
+        TotalSizeLimitBytes = cfg.MaxMemoryTotalBytes;
+        KeyLengthLimit = cfg.MaxMemoryKeyLength;
+        StringValueLengthLimit = cfg.MaxMemoryStringValueLength;
+        PlacesLimit = cfg.MaxMemoryPlaces;
+        PlaceNameLengthLimit = cfg.MaxMemoryPlaceNameLength;
+
+        int capacity = eventCapacity ?? cfg.MemoryEventCapacity;
+        _events = new RingBuffer<NpcMemoryEvent>(capacity > 0 ? capacity : DefaultEventCapacity);
+    }
+
+    public NpcMemory(int eventCapacity)
+        : this(null, eventCapacity)
+    {
     }
 
     #region Key-Value Store
@@ -128,9 +157,9 @@ public sealed class NpcMemory : INpcMemory
             throw new ArgumentException("Key cannot be null or whitespace.", nameof(key));
         }
 
-        if (key.Length > MaxKeyLength)
+        if (key.Length > KeyLengthLimit)
         {
-            throw new ArgumentException($"Key length exceeds maximum of {MaxKeyLength} characters.", nameof(key));
+            throw new ArgumentException($"Key length exceeds maximum of {KeyLengthLimit} characters.", nameof(key));
         }
 
         if (value is null)
@@ -146,15 +175,15 @@ public sealed class NpcMemory : INpcMemory
         bool isExisting = _kvStore.ContainsKey(key);
         int oldEntrySize = isExisting ? _entrySizes[key] : 0;
 
-        if (!isExisting && _kvStore.Count >= MaxKeys)
+        if (!isExisting && _kvStore.Count >= KeyLimit)
         {
-            throw new InvalidOperationException($"Memory key limit exceeded (maximum {MaxKeys} keys allowed).");
+            throw new InvalidOperationException($"Memory key limit exceeded (maximum {KeyLimit} keys allowed).");
         }
 
         int newTotalSize = _totalSizeBytes - oldEntrySize + newEntrySize;
-        if (newTotalSize > MaxTotalSizeBytes)
+        if (newTotalSize > TotalSizeLimitBytes)
         {
-            throw new InvalidOperationException($"Memory size limit exceeded (maximum {MaxTotalSizeBytes} bytes allowed).");
+            throw new InvalidOperationException($"Memory size limit exceeded (maximum {TotalSizeLimitBytes} bytes allowed).");
         }
 
         _kvStore[key] = value;
@@ -189,7 +218,7 @@ public sealed class NpcMemory : INpcMemory
         _totalSizeBytes = 0;
     }
 
-    private static void ValidateAndCalculateSize(object value, out int sizeBytes)
+    private void ValidateAndCalculateSize(object value, out int sizeBytes)
     {
         switch (value)
         {
@@ -202,9 +231,9 @@ public sealed class NpcMemory : INpcMemory
                 return;
 
             case string s:
-                if (s.Length > MaxStringValueLength)
+                if (s.Length > StringValueLengthLimit)
                 {
-                    throw new ArgumentException($"String value length ({s.Length}) exceeds maximum of {MaxStringValueLength} characters.");
+                    throw new ArgumentException($"String value length ({s.Length}) exceeds maximum of {StringValueLengthLimit} characters.");
                 }
                 sizeBytes = Encoding.UTF8.GetByteCount(s);
                 return;
@@ -217,9 +246,9 @@ public sealed class NpcMemory : INpcMemory
                 int dictSize = 4; // Overhead
                 foreach (var (k, v) in dict)
                 {
-                    if (string.IsNullOrEmpty(k) || k.Length > MaxKeyLength)
+                    if (string.IsNullOrEmpty(k) || k.Length > KeyLengthLimit)
                     {
-                        throw new ArgumentException("Flat table keys must be non-empty strings up to 64 characters.");
+                        throw new ArgumentException($"Flat table keys must be non-empty strings up to {KeyLengthLimit} characters.");
                     }
                     ValidateFlatElement(v, out int elemSize);
                     dictSize += 4 + Encoding.UTF8.GetByteCount(k) + elemSize;
@@ -244,7 +273,7 @@ public sealed class NpcMemory : INpcMemory
         }
     }
 
-    private static void ValidateFlatElement(object? element, out int sizeBytes)
+    private void ValidateFlatElement(object? element, out int sizeBytes)
     {
         if (element is null)
         {
@@ -261,9 +290,9 @@ public sealed class NpcMemory : INpcMemory
                 sizeBytes = 8;
                 return;
             case string s:
-                if (s.Length > MaxStringValueLength)
+                if (s.Length > StringValueLengthLimit)
                 {
-                    throw new ArgumentException($"String value length ({s.Length}) exceeds maximum of {MaxStringValueLength} characters.");
+                    throw new ArgumentException($"String value length ({s.Length}) exceeds maximum of {StringValueLengthLimit} characters.");
                 }
                 sizeBytes = Encoding.UTF8.GetByteCount(s);
                 return;
@@ -293,14 +322,14 @@ public sealed class NpcMemory : INpcMemory
             throw new ArgumentException("Place name cannot be null or whitespace.", nameof(name));
         }
 
-        if (name.Length > MaxPlaceNameLength)
+        if (name.Length > PlaceNameLengthLimit)
         {
-            throw new ArgumentException($"Place name length exceeds maximum of {MaxPlaceNameLength} characters.", nameof(name));
+            throw new ArgumentException($"Place name length exceeds maximum of {PlaceNameLengthLimit} characters.", nameof(name));
         }
 
-        if (!_places.ContainsKey(name) && _places.Count >= MaxPlaces)
+        if (!_places.ContainsKey(name) && _places.Count >= PlacesLimit)
         {
-            throw new InvalidOperationException($"Known places limit exceeded (maximum {MaxPlaces} places allowed).");
+            throw new InvalidOperationException($"Known places limit exceeded (maximum {PlacesLimit} places allowed).");
         }
 
         _places[name] = position;
@@ -427,7 +456,7 @@ public sealed class NpcMemory : INpcMemory
         return JsonSerializer.Serialize(dto, options);
     }
 
-    public static NpcMemory FromJson(string json)
+    public static NpcMemory FromJson(string json, BrainLimitsConfig? config = null)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -440,7 +469,7 @@ public sealed class NpcMemory : INpcMemory
             throw new InvalidOperationException("Failed to deserialize NPC memory JSON.");
         }
 
-        var memory = new NpcMemory(dto.EventCapacity);
+        var memory = new NpcMemory(config, dto.EventCapacity);
 
         // Restore places
         foreach (var (name, pos) in dto.Places)

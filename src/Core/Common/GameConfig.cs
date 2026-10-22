@@ -39,7 +39,7 @@ public sealed record NpcConfig
 }
 
 /// <summary>
-/// Lua brain sandbox runtime limits and safety boundaries.
+/// Lua brain sandbox runtime limits, safety boundaries, and NPC memory storage quotas.
 /// </summary>
 public sealed record BrainLimitsConfig
 {
@@ -49,8 +49,41 @@ public sealed record BrainLimitsConfig
     public int MaxTopLevelChunkInstructions { get; set; } = 10000;
     public int MaxScriptSizeBytes { get; set; } = 8192;
     public int MaxSayLength { get; set; } = 200;
+
+    /// <summary>
+    /// Maximum number of unique keys permitted in an NPC's persistent KV store.
+    /// </summary>
     public int MaxMemoryKeys { get; set; } = 64;
+
+    /// <summary>
+    /// Maximum total memory footprint in bytes across all keys and values in an NPC's KV store (default: 16 KB).
+    /// </summary>
     public int MaxMemoryTotalBytes { get; set; } = 16384;
+
+    /// <summary>
+    /// Maximum length in characters of an individual key name in the KV store.
+    /// </summary>
+    public int MaxMemoryKeyLength { get; set; } = 64;
+
+    /// <summary>
+    /// Maximum length in characters of a string value stored in the KV store.
+    /// </summary>
+    public int MaxMemoryStringValueLength { get; set; } = 4096;
+
+    /// <summary>
+    /// Maximum number of named places an NPC can remember simultaneously.
+    /// </summary>
+    public int MaxMemoryPlaces { get; set; } = 64;
+
+    /// <summary>
+    /// Maximum length in characters of a named place identifier.
+    /// </summary>
+    public int MaxMemoryPlaceNameLength { get; set; } = 64;
+
+    /// <summary>
+    /// Maximum number of events retained in the FIFO event log ring buffer for prompt generation.
+    /// </summary>
+    public int MemoryEventCapacity { get; set; } = 50;
 }
 
 /// <summary>

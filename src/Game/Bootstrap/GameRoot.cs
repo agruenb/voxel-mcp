@@ -115,7 +115,8 @@ public partial class GameRoot : Node
             EventBus,
             LoggerFactory.CreateLogger<NpcManager>(),
             PathfindingService,
-            PerceptionService
+            PerceptionService,
+            config.BrainLimits
         )
         {
             FreezeDistance = config.World.LoadedChunkRadius * config.World.ChunkSize,

@@ -137,6 +137,11 @@ public sealed class NpcState : IEntity
         return false;
     }
 
+    /// <summary>
+    /// Behaviour arbiter governing layer prioritization (Reflex > Task > Idle) for this NPC.
+    /// </summary>
+    public Arbiter.IBehaviourArbiter? Arbiter { get; set; }
+
     public NpcState(
         EntityId id,
         string name,
@@ -146,7 +151,8 @@ public sealed class NpcState : IEntity
         IInventory? inventory = null,
         float health = DefaultMaxHealth,
         float facing = 0f,
-        INpcMemory? memory = null)
+        INpcMemory? memory = null,
+        Arbiter.IBehaviourArbiter? arbiter = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -163,6 +169,7 @@ public sealed class NpcState : IEntity
         Health = Math.Clamp(health, 0f, MaxHealth);
         Facing = facing;
         Memory = memory ?? new NpcMemory();
+        Arbiter = arbiter;
 
         if (Memory.Place("home") == null)
         {

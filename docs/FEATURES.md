@@ -78,7 +78,7 @@ flowchart LR
 | F-205 | Action system | M2 | F-203 | Done |
 | F-206 | Perception service | M2 | F-201, F-106 | Done |
 | F-207 | NPC memory | M2 | F-201 | Done |
-| F-208 | Behaviour arbiter, idle & reflex layers | M2 | F-205, F-206 | Todo |
+| F-208 | Behaviour arbiter, idle & reflex layers | M2 | F-205, F-206 | Done |
 | F-209 | Speech system & speech bubbles | M3 | F-303 | Todo |
 | F-301 | Lua sandbox (MoonSharp) | M3 | F-002 | Todo |
 | F-302 | Lua API registry & bindings | M3 | F-301, F-205, F-206, F-207 | Todo |
