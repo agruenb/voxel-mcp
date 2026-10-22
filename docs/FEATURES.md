@@ -74,7 +74,7 @@ flowchart LR
 | F-201 | Entity registry, NPC state & NpcManager | M2 | F-101 | Done |
 | F-202 | NPC node, visuals & kinematic movement | M2 | F-201, F-104 | Done |
 | F-203 | Voxel pathfinding & path following | M2 | F-202, F-204 | Todo |
-| F-204 | Walkability queries | M2 | F-102 | Todo |
+| F-204 | Walkability queries | M2 | F-102 | Done |
 | F-205 | Action system | M2 | F-203 | Todo |
 | F-206 | Perception service | M2 | F-201, F-106 | Todo |
 | F-207 | NPC memory | M2 | F-201 | Todo |
