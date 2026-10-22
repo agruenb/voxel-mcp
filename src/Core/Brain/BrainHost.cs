@@ -48,6 +48,10 @@ public sealed class BrainHost : IBrainHost
     /// <inheritdoc />
     public string? CurrentScript => _currentScript;
 
+    private readonly List<string> _recentLogs = new();
+    private readonly object _logsLock = new();
+    public const int MaxRecentLogs = 50;
+
     /// <inheritdoc />
     public string? LastError => _lastError;
 
@@ -55,7 +59,31 @@ public sealed class BrainHost : IBrainHost
     public INpcBrainContext Context => _context;
 
     /// <inheritdoc />
+    public IReadOnlyList<string> RecentLogs
+    {
+        get
+        {
+            lock (_logsLock)
+            {
+                return _recentLogs.ToArray();
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public bool HasActiveTask => _status == BrainStatus.Running;
+
+    public void AddLog(string message)
+    {
+        lock (_logsLock)
+        {
+            if (_recentLogs.Count >= MaxRecentLogs)
+            {
+                _recentLogs.RemoveAt(0);
+            }
+            _recentLogs.Add(message);
+        }
+    }
 
     public BrainHost(
         NpcState npc,
@@ -76,10 +104,22 @@ public sealed class BrainHost : IBrainHost
         _logger = logger;
         _actionFactory = actionFactory ?? new DefaultActionFactory(entityRegistry: entityRegistry, eventBus: eventBus);
 
-        _context = new NpcBrainContext(
+        NpcBrainContext context = null!;
+        context = new NpcBrainContext(
             _npc,
-            logCallback: msg => _logger?.LogDebug($"[NPC {_npc.Name}] {msg}"),
-            sayCallback: OnBrainSaid);
+            logCallback: msg =>
+            {
+                float time = context != null ? context.CurrentTime : 0f;
+                AddLog($"[{time:F1}s] {msg}");
+                _logger?.LogDebug($"[NPC {_npc.Name}] {msg}");
+            },
+            sayCallback: text =>
+            {
+                float time = context != null ? context.CurrentTime : 0f;
+                AddLog($"[{time:F1}s] said: \"{text}\"");
+                OnBrainSaid(text);
+            });
+        _context = context;
 
         _eventSubscription = _eventBus?.Subscribe<EntitySpoke>(OnEntitySpoke);
     }

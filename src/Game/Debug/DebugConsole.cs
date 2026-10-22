@@ -339,8 +339,25 @@ public partial class DebugConsole : CanvasLayer
                 Log("  wait_npc <id|name> <secs> - Make NPC wait");
                 Log("  cancel_npc <id|name>      - Cancel active action on NPC");
                 Log("  list_npcs                 - List all active NPCs");
-                Log("Hotkeys: F4=Spawn, F5=Move, F6=Jump, F7=Stop, F8=NavToLook");
+                Log("  brain                     - Toggle Lua Brain Console (F2)");
+                Log("Hotkeys: F2=BrainConsole, F4=Spawn, F5=Move, F6=Jump, F7=Stop, F8=NavToLook");
                 break;
+
+            case "brain":
+            case "brain_console":
+            {
+                var brainConsole = GetParent()?.GetNodeOrNull<DebugBrainConsole>("DebugBrainConsole");
+                if (brainConsole != null)
+                {
+                    brainConsole.ToggleConsole();
+                    Log("Toggled Lua Brain Console (F2).");
+                }
+                else
+                {
+                    Log("DebugBrainConsole node not found.");
+                }
+                break;
+            }
 
             case "spawn_npc":
             case "spawn":

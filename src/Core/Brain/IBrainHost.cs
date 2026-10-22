@@ -32,6 +32,16 @@ public interface IBrainHost : ITaskLayer, IDisposable
     INpcBrainContext Context { get; }
 
     /// <summary>
+    /// Recent log messages emitted by this brain via <c>log(...)</c>, <c>npc.say</c>, or lifecycle errors.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<string> RecentLogs { get; }
+
+    /// <summary>
+    /// Appends a log message to the brain's recent log history.
+    /// </summary>
+    void AddLog(string message);
+
+    /// <summary>
     /// Loads and initializes a new Lua brain script for the NPC, replacing any existing script.
     /// Validates script size and runs top-level code within the top-level instruction budget.
     /// </summary>

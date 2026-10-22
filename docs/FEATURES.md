@@ -85,7 +85,7 @@ flowchart LR
 | F-303 | BrainHost (coroutines, budgets, handlers) | M3 | F-302 | Done |
 | F-304 | Sandbox security test suite | M3 | F-303 | Done |
 | F-305 | Example brain library | M3 | F-303 | Done |
-| F-306 | Debug brain console | M3 | F-303, F-108 | Todo |
+| F-306 | Debug brain console | M3 | F-303, F-108 | Done |
 | F-307 | Brain validator (compile + dry run) | M3 | F-303 | Todo |
 | F-401 | Prompt builder | M4 | F-302, F-305 | Todo |
 | F-402 | LLM client abstraction, Gemini & mock clients | M4 | F-002 | Todo |

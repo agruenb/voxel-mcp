@@ -40,6 +40,7 @@ public partial class GameRoot : Node
     public NpcViewManager NpcViewManager { get; private set; } = null!;
     public DebugPathRenderer DebugPathRenderer { get; private set; } = null!;
     public DebugConsole DebugConsole { get; private set; } = null!;
+    public DebugBrainConsole DebugBrainConsole { get; private set; } = null!;
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
@@ -209,13 +210,22 @@ public partial class GameRoot : Node
         };
         AddChild(DebugConsole);
 
+        DebugBrainConsole = new DebugBrainConsole
+        {
+            Name = "DebugBrainConsole",
+            NpcManager = NpcManager,
+            Player = player,
+            LuaRuntime = LuaRuntime
+        };
+        AddChild(DebugBrainConsole);
+
         GD.Print("started");
         Logger.LogInfo("GameRoot initialized successfully");
         Logger.LogInfo($"BlockRegistry loaded with {BlockRegistry.Count} block types");
         Logger.LogInfo($"TerrainGenerator initialized with seed {config.World.Seed}");
         Logger.LogInfo("ChunkMesher initialized");
         Logger.LogInfo("NpcManager and EntityRegistry initialized");
-        Logger.LogInfo("NpcViewManager, DebugPathRenderer, and DebugConsole initialized");
+        Logger.LogInfo("NpcViewManager, DebugPathRenderer, DebugConsole, and DebugBrainConsole initialized");
     }
 
     public override void _PhysicsProcess(double delta)
