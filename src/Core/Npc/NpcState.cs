@@ -31,6 +31,36 @@ public sealed class NpcState : IEntity
     public bool IsActive { get; set; } = true;
 
     /// <summary>
+    /// Whether the NPC is currently standing on a solid surface.
+    /// </summary>
+    public bool IsOnGround { get; set; }
+
+    /// <summary>
+    /// Whether the NPC collided horizontally with an obstacle during the last physics tick.
+    /// </summary>
+    public bool IsOnWall { get; set; }
+
+    /// <summary>
+    /// Horizontal bounding box width/depth in meters.
+    /// </summary>
+    public float Width { get; set; } = 0.6f;
+
+    /// <summary>
+    /// Vertical bounding box height in meters.
+    /// </summary>
+    public float Height { get; set; } = 1.8f;
+
+    /// <summary>
+    /// Maximum step-up height in meters for automated step climbing.
+    /// </summary>
+    public float StepHeight { get; set; } = 1.1f;
+
+    /// <summary>
+    /// Upward velocity impulse applied when jumping.
+    /// </summary>
+    public float JumpVelocity { get; set; } = 7.5f;
+
+    /// <summary>
     /// Entity ID of the instructor who assigned the current task, or null.
     /// </summary>
     public EntityId? InstructorId { get; set; }
@@ -51,6 +81,26 @@ public sealed class NpcState : IEntity
     public float TimeSinceLastBrainTick { get; internal set; }
 
     public bool IsDead => Health <= 0f;
+
+    /// <summary>
+    /// Gets the current axis-aligned bounding box of the NPC based on its feet position.
+    /// </summary>
+    public Aabb GetBoundingBox() => Aabb.FromFeet(Position, Width, Height);
+
+    /// <summary>
+    /// Makes the NPC jump if currently on the ground, setting upward velocity.
+    /// </summary>
+    public bool Jump()
+    {
+        if (IsOnGround)
+        {
+            Velocity = Velocity with { Y = JumpVelocity };
+            IsOnGround = false;
+            return true;
+        }
+
+        return false;
+    }
 
     public NpcState(
         EntityId id,

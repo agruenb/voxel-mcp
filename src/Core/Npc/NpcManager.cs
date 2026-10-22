@@ -205,16 +205,21 @@ public sealed class NpcManager
             }
         }
 
-        // 2. Update NPC positions from continuous velocities
+        // 2. Update NPC positions and kinematic collisions
         if (_npcsById.Count > 0)
         {
             foreach (var npc in _npcsById.Values)
             {
-                if (npc.Velocity.LengthSquared() > 1e-6f)
+                if (_voxelWorld != null)
+                {
+                    KinematicMover.Move(npc, _voxelWorld, dt, Gravity, npc.StepHeight);
+                }
+                else if (npc.Velocity.LengthSquared() > 1e-6f)
                 {
                     npc.Position += npc.Velocity * dt;
-                    _registry.UpdateSpatial(npc);
                 }
+
+                _registry.UpdateSpatial(npc);
             }
         }
     }

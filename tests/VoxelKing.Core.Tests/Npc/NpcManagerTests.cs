@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Npc;
+using VoxelKing.Core.Voxel;
 using Xunit;
 
 public class NpcManagerTests
@@ -123,5 +124,58 @@ public class NpcManagerTests
 
         var updatedSchedule = manager.GetNpcSchedule(npcFrozen.Id);
         Assert.Equal(NpcLodTier.Normal, updatedSchedule.Tier);
+    }
+
+    [Fact]
+    public void PhysicsTick_With_VoxelWorld_Resolves_Kinematic_Gravity_And_Collisions()
+    {
+        var blocks = BlockRegistry.CreateDefault();
+        var world = new VoxelWorld(blocks);
+        ushort stoneId = blocks.GetId("stone");
+
+        // Floor at Y = 0 (top surface at Y = 1.0f)
+        for (int x = -5; x <= 5; x++)
+        {
+            for (int z = -5; z <= 5; z++)
+            {
+                world.SetBlock(x, 0, z, stoneId);
+            }
+        }
+
+        // 2-block high wall at X = 2 (Y = 1 and 2)
+        for (int z = -2; z <= 2; z++)
+        {
+            world.SetBlock(2, 1, z, stoneId);
+            world.SetBlock(2, 2, z, stoneId);
+        }
+
+        var registry = new EntityRegistry();
+        var manager = new NpcManager(registry, voxelWorld: world);
+
+        // Spawn NPC floating at Y = 4.0f
+        var npc = manager.SpawnNpc("KinematicBot", new Vec3(0f, 4.0f, 0f));
+        Assert.False(npc.IsOnGround);
+
+        // Run 60 physics ticks (1.0s) -> NPC falls 3m and lands on the floor
+        for (int i = 0; i < 60; i++)
+        {
+            manager.PhysicsTick(1f / 60f);
+        }
+
+        Assert.True(npc.IsOnGround);
+        Assert.Equal(1.0f, npc.Position.Y, 2);
+
+        // Give NPC horizontal velocity towards the wall
+        npc.Velocity = new Vec3(4.0f, 0f, 0f);
+
+        for (int i = 0; i < 30; i++)
+        {
+            manager.PhysicsTick(1f / 60f);
+        }
+
+        // Must be stopped by wall at X = 2.0 (X <= 1.701 with half-width 0.3)
+        Assert.True(npc.Position.X <= 1.701f);
+        Assert.True(npc.IsOnWall);
+        Assert.True(npc.IsOnGround);
     }
 }

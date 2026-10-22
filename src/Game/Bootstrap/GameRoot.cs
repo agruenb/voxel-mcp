@@ -8,6 +8,8 @@ using VoxelKing.Core.Entities;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
+using VoxelKing.Game.Debug;
+using VoxelKing.Game.Npc;
 using VoxelKing.Game.Player;
 using VoxelKing.Game.UI;
 using VoxelKing.Game.World;
@@ -30,6 +32,8 @@ public partial class GameRoot : Node
     public NamedPlaces NamedPlaces { get; private set; } = new();
     public EntityRegistry EntityRegistry { get; private set; } = null!;
     public NpcManager NpcManager { get; private set; } = null!;
+    public NpcViewManager NpcViewManager { get; private set; } = null!;
+    public DebugConsole DebugConsole { get; private set; } = null!;
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
@@ -156,12 +160,26 @@ public partial class GameRoot : Node
             config.World
         );
 
+        NpcViewManager = new NpcViewManager { Name = "NpcViewManager" };
+        AddChild(NpcViewManager);
+        NpcViewManager.Initialize(EventBus, NpcManager);
+
+        DebugConsole = new DebugConsole
+        {
+            Name = "DebugConsole",
+            NpcManager = NpcManager,
+            VoxelWorld = VoxelWorld,
+            Player = player
+        };
+        AddChild(DebugConsole);
+
         GD.Print("started");
         Logger.LogInfo("GameRoot initialized successfully");
         Logger.LogInfo($"BlockRegistry loaded with {BlockRegistry.Count} block types");
         Logger.LogInfo($"TerrainGenerator initialized with seed {config.World.Seed}");
         Logger.LogInfo("ChunkMesher initialized");
         Logger.LogInfo("NpcManager and EntityRegistry initialized");
+        Logger.LogInfo("NpcViewManager and DebugConsole initialized");
     }
 
     public override void _PhysicsProcess(double delta)
