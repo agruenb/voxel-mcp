@@ -208,6 +208,19 @@ public partial class DialogueUI : CanvasLayer
         string instructorName = _playerEntity?.Name ?? "Player";
         EntityId? instructorId = _playerEntity?.Id;
 
+        string? playerHeldItem = null;
+        if (_player != null)
+        {
+            var heldSlot = _player.Inventory.GetSlot(_player.SelectedHotbarSlot);
+            if (heldSlot != null && !heldSlot.IsEmpty)
+            {
+                playerHeldItem = $"{heldSlot.ItemId} x{heldSlot.Count}";
+            }
+        }
+
+        // Clear input text to avoid re-submitting if called multiple times in same frame
+        _inputField.Text = string.Empty;
+
         // Immediately close dialogue panel to allow the player to move or talk to other NPCs
         CloseDialogue(cancelled: false);
 
@@ -226,7 +239,8 @@ public partial class DialogueUI : CanvasLayer
                         text,
                         instructorId: instructorId,
                         instructorName: instructorName,
-                        autoApply: true).ConfigureAwait(false);
+                        autoApply: true,
+                        playerHeldItem: playerHeldItem).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -258,9 +272,13 @@ public partial class DialogueUI : CanvasLayer
 
             if (keyEvent.Keycode == Key.Enter || keyEvent.Keycode == Key.KpEnter)
             {
-                SubmitInstruction();
-                GetViewport().SetInputAsHandled();
-                return;
+                // Note: _inputField.TextSubmitted handles Enter when focused; this handles Enter if focus was lost
+                if (!_inputField.HasFocus())
+                {
+                    SubmitInstruction();
+                    GetViewport().SetInputAsHandled();
+                    return;
+                }
             }
         }
     }

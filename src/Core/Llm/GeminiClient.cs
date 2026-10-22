@@ -121,39 +121,15 @@ public sealed class GeminiClient : ILlmClient
         // 3. Generation config with structured JSON response schema (LLM_INTEGRATION §3)
         var properties = new JsonObject
         {
-            ["reply"] = new JsonObject
-            {
-                ["type"] = "STRING",
-                ["description"] = "In-character spoken answer, max 200 chars"
-            },
-            ["needs_clarification"] = new JsonObject
-            {
-                ["type"] = "BOOLEAN",
-                ["description"] = "true if the instruction is too ambiguous; then script is empty and reply asks a question"
-            },
-            ["keep_current_task"] = new JsonObject
-            {
-                ["type"] = "BOOLEAN",
-                ["description"] = "true for pure chit-chat that should not change behaviour"
-            },
-            ["task_summary"] = new JsonObject
-            {
-                ["type"] = "STRING",
-                ["description"] = "One short sentence describing the new task, used in future prompts"
-            },
             ["script"] = new JsonObject
             {
                 ["type"] = "STRING",
-                ["description"] = "Complete Lua brain source, or empty"
+                ["description"] = "Complete executable Lua 5.2 behaviour script defining function main()"
             }
         };
 
         var required = new JsonArray
         {
-            "reply",
-            "needs_clarification",
-            "keep_current_task",
-            "task_summary",
             "script"
         };
 

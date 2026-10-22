@@ -55,10 +55,12 @@ public sealed class FallbackLlmClient : ILlmClient
         {
             IsUsingMock = true;
             EmitWarningOnce("No Gemini API key configured. Using Mock LLM client.");
+            _logger?.LogInfo($"FallbackLlmClient: Using MockLlmClient for request (instruction query) - No API key configured.");
             return await _mockClient.GenerateAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
         // Case 2: API key configured -> call primary client
+        _logger?.LogInfo($"FallbackLlmClient: Dispatching request to primary LLM client ({_config.Model})...");
         var response = await _primaryClient.GenerateAsync(request, cancellationToken).ConfigureAwait(false);
 
         // Case 3: Remote API failure (invalid key, service unavailable, etc.) -> fallback to mock with warning
@@ -69,6 +71,7 @@ public sealed class FallbackLlmClient : ILlmClient
                 ? $"Gemini API key rejected ({response.Error.Message})"
                 : $"Gemini service unavailable ({response.Error.Message})";
             EmitWarningOnce($"{reason}. Falling back to Mock LLM client.");
+            _logger?.LogWarning($"FallbackLlmClient: Primary client failed ({response.Error.Kind}: {response.Error.Message}). Falling back to MockLlmClient.");
             return await _mockClient.GenerateAsync(request, cancellationToken).ConfigureAwait(false);
         }
 

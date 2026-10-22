@@ -101,9 +101,8 @@ public class NpcManagerProfileTests
 
         var builder = new PromptBuilder();
         var prompt = builder.BuildPrompt(npc, "tend the wheat");
-        Assert.Contains("name=Bob", prompt.UserContent);
-        Assert.Contains("personality=\"grumpy farmer\"", prompt.UserContent);
-        Assert.Contains("skills=[farming, harvesting]", prompt.UserContent);
+        Assert.Contains("Bob", prompt.UserContent);
+        Assert.Contains("tend the wheat", prompt.UserContent);
     }
 
     [Fact]

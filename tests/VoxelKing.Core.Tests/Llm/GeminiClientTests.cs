@@ -226,6 +226,6 @@ public class GeminiClientTests
 
         Assert.True(response.IsSuccess, $"Live Gemini call failed: {response.Error?.Message}");
         Assert.NotNull(response.Content);
-        Assert.NotEmpty(response.Content.Reply);
+        Assert.NotEmpty(response.Content.Script);
     }
 }

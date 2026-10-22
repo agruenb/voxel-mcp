@@ -31,7 +31,8 @@ public interface IPromptBuilder
         string? instructor = null,
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
-        PromptBuilderOptions? options = null);
+        PromptBuilderOptions? options = null,
+        string? playerHeldItem = null);
 
     /// <summary>
     /// Builds a full prompt bundle (system instruction + user content + token count estimates)
@@ -49,7 +50,8 @@ public interface IPromptBuilder
         string? instructor = null,
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
-        PromptBuilderOptions? options = null);
+        PromptBuilderOptions? options = null,
+        string? playerHeldItem = null);
 
     /// <summary>
     /// Builds a follow-up repair turn message for validation retry loops (LLM_INTEGRATION §4).

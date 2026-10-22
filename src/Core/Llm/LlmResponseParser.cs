@@ -53,33 +53,7 @@ public static class LlmResponseParser
                 return false;
             }
 
-            // Verify required properties per schema: reply, needs_clarification, keep_current_task, task_summary, script
-            string? reply = GetStringProperty(root, "reply");
-            if (reply == null)
-            {
-                errorMessage = "Required property 'reply' is missing or not a string.";
-                return false;
-            }
-
-            if (!TryGetBooleanProperty(root, "needs_clarification", out bool needsClarification))
-            {
-                errorMessage = "Required property 'needs_clarification' is missing or not a boolean.";
-                return false;
-            }
-
-            if (!TryGetBooleanProperty(root, "keep_current_task", out bool keepCurrentTask))
-            {
-                errorMessage = "Required property 'keep_current_task' is missing or not a boolean.";
-                return false;
-            }
-
-            string? taskSummary = GetStringProperty(root, "task_summary");
-            if (taskSummary == null)
-            {
-                errorMessage = "Required property 'task_summary' is missing or not a string.";
-                return false;
-            }
-
+            // Verify required property per schema: script
             string? script = GetStringProperty(root, "script");
             if (script == null)
             {
@@ -87,11 +61,16 @@ public static class LlmResponseParser
                 return false;
             }
 
-            // Enforce max 200 chars on reply
+            // Optional properties with defaults
+            string reply = GetStringProperty(root, "reply") ?? string.Empty;
             if (reply.Length > MaxReplyLength)
             {
                 reply = reply[..MaxReplyLength];
             }
+
+            TryGetBooleanProperty(root, "needs_clarification", out bool needsClarification);
+            TryGetBooleanProperty(root, "keep_current_task", out bool keepCurrentTask);
+            string taskSummary = GetStringProperty(root, "task_summary") ?? string.Empty;
 
             response = new LlmBrainResponse
             {

@@ -119,6 +119,7 @@ public class BrainCompiler : IBrainCompiler
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
         bool autoApply = true,
+        string? playerHeldItem = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(npc);
@@ -134,6 +135,7 @@ public class BrainCompiler : IBrainCompiler
         {
             if (_activeCompilations.TryGetValue(npc.Id, out var existing))
             {
+                _logger?.LogInfo($"BrainCompiler: Superseding in-flight compilation for NPC {npc.Id} ({npc.Name}) due to newer instruction: \"{instruction}\"");
                 try
                 {
                     existing.Cts.Cancel();
@@ -157,12 +159,15 @@ public class BrainCompiler : IBrainCompiler
             npc.ConversationState = NpcConversationState.Thinking;
             npc.AddConversationTurn(effectiveInstructor, instruction);
 
+            _logger?.LogInfo($"BrainCompiler: Compiling instruction for NPC {npc.Id} ({npc.Name}): \"{instruction}\" from {effectiveInstructor}");
+
             var builtPrompt = _promptBuilder.BuildPrompt(
                 npc,
                 instruction,
                 instructor: effectiveInstructor,
                 conversation: conversation ?? (npc.ConversationHistory.Count > 0 ? npc.ConversationHistory : null),
-                currentTime: currentTime);
+                currentTime: currentTime,
+                playerHeldItem: playerHeldItem);
 
             var messages = new List<LlmMessage>
             {
@@ -196,8 +201,11 @@ public class BrainCompiler : IBrainCompiler
                     {
                         npc.ConversationState = NpcConversationState.None;
                     }
+                    _logger?.LogInfo($"BrainCompiler: Compilation cancelled for NPC {npc.Id} ({npc.Name}).");
                     return CompileResult.Cancelled("Compilation was cancelled.");
                 }
+
+                _logger?.LogWarning($"BrainCompiler: LLM request failed for NPC {npc.Id} ({npc.Name}): {response.Error?.Kind} - {response.Error?.Message}");
 
                 var failResult = CompileResult.Failed(
                     response.Error ?? LlmError.Unknown("LLM request returned an unspecified failure."),
@@ -216,6 +224,7 @@ public class BrainCompiler : IBrainCompiler
                 if (!LlmResponseParser.TryParse(response.RawText, out content, out parseError))
                 {
                     // Failed Stage 1 schema validation
+                    _logger?.LogWarning($"BrainCompiler: Failed to parse structured JSON response for NPC {npc.Id} ({npc.Name}): {parseError}");
                 }
             }
 
@@ -224,6 +233,7 @@ public class BrainCompiler : IBrainCompiler
             {
                 if (content.NeedsClarification)
                 {
+                    _logger?.LogInfo($"BrainCompiler: NPC {npc.Id} ({npc.Name}) requested clarification: \"{content.Reply}\"");
                     var clarifResult = CompileResult.Clarification(content.Reply, attempts: 1, finalResponse: response);
                     DispatchIfAutoApply(npc, clarifResult, instruction, instructorId, effectiveInstructor, currentTime, autoApply);
                     return clarifResult;
@@ -231,6 +241,7 @@ public class BrainCompiler : IBrainCompiler
 
                 if (content.KeepCurrentTask)
                 {
+                    _logger?.LogInfo($"BrainCompiler: NPC {npc.Id} ({npc.Name}) chit-chat / keep current task: \"{content.Reply}\"");
                     var keepResult = CompileResult.KeepCurrent(content.Reply, attempts: 1, finalResponse: response);
                     DispatchIfAutoApply(npc, keepResult, instruction, instructorId, effectiveInstructor, currentTime, autoApply);
                     return keepResult;
@@ -253,9 +264,11 @@ public class BrainCompiler : IBrainCompiler
 
             if (validation.Ok && content != null)
             {
+                string effectiveSummary = !string.IsNullOrWhiteSpace(content.TaskSummary) ? content.TaskSummary : instruction;
+                _logger?.LogInfo($"BrainCompiler: Successfully compiled Lua brain for NPC {npc.Id} ({npc.Name}) on attempt 1! Summary: \"{effectiveSummary}\"");
                 var successResult = CompileResult.Success(
                     content.Reply,
-                    content.TaskSummary,
+                    effectiveSummary,
                     content.Script,
                     validation,
                     attempts,
@@ -335,6 +348,7 @@ public class BrainCompiler : IBrainCompiler
                 {
                     if (content.NeedsClarification)
                     {
+                        _logger?.LogInfo($"BrainCompiler: NPC {npc.Id} ({npc.Name}) requested clarification during repair retry {retry}: \"{content.Reply}\"");
                         var clarifResult = CompileResult.Clarification(content.Reply, attempts, finalResponse: response);
                         DispatchIfAutoApply(npc, clarifResult, instruction, instructorId, effectiveInstructor, currentTime, autoApply);
                         return clarifResult;
@@ -342,6 +356,7 @@ public class BrainCompiler : IBrainCompiler
 
                     if (content.KeepCurrentTask)
                     {
+                        _logger?.LogInfo($"BrainCompiler: NPC {npc.Id} ({npc.Name}) chit-chat / keep current task during repair retry {retry}: \"{content.Reply}\"");
                         var keepResult = CompileResult.KeepCurrent(content.Reply, attempts, finalResponse: response);
                         DispatchIfAutoApply(npc, keepResult, instruction, instructorId, effectiveInstructor, currentTime, autoApply);
                         return keepResult;
@@ -350,10 +365,11 @@ public class BrainCompiler : IBrainCompiler
                     validation = _validator.Validate(content.Script);
                     if (validation.Ok)
                     {
+                        string effectiveSummary = !string.IsNullOrWhiteSpace(content.TaskSummary) ? content.TaskSummary : instruction;
                         _logger?.LogInfo($"NPC {npc.Id} ({npc.Name}) script repaired successfully on attempt {attempts}!");
                         var successResult = CompileResult.Success(
                             content.Reply,
-                            content.TaskSummary,
+                            effectiveSummary,
                             content.Script,
                             validation,
                             attempts,
@@ -411,6 +427,7 @@ public class BrainCompiler : IBrainCompiler
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
         bool autoApply = true,
+        string? playerHeldItem = null,
         CancellationToken cancellationToken = default)
     {
         NpcState? npc = null;
@@ -428,7 +445,7 @@ public class BrainCompiler : IBrainCompiler
             throw new KeyNotFoundException($"NPC with ID {npcId} was not found.");
         }
 
-        return CompileAsync(npc, instruction, instructorId, instructorName, conversation, currentTime, autoApply, cancellationToken);
+        return CompileAsync(npc, instruction, instructorId, instructorName, conversation, currentTime, autoApply, playerHeldItem, cancellationToken);
     }
 
     /// <inheritdoc/>

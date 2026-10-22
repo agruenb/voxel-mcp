@@ -3,6 +3,7 @@ namespace VoxelKing.Core.Llm;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using VoxelKing.Core.Common;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Memory;
 
@@ -15,6 +16,16 @@ public sealed record NpcPromptContext
     /// Gets the display name of the NPC.
     /// </summary>
     public string Name { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the world position of the NPC.
+    /// </summary>
+    public Vec3 Position { get; init; }
+
+    /// <summary>
+    /// Gets the item currently held by the player, or null if none/empty.
+    /// </summary>
+    public string? PlayerHeldItem { get; init; }
 
     /// <summary>
     /// Gets the personality description of the NPC (e.g. "grumpy but helpful farmer").
@@ -79,7 +90,8 @@ public sealed record NpcPromptContext
         string instruction,
         string? instructor = null,
         IReadOnlyList<ConversationTurn>? conversation = null,
-        double currentTime = -1)
+        double currentTime = -1,
+        string? playerHeldItem = null)
     {
         ArgumentNullException.ThrowIfNull(npc);
         ArgumentNullException.ThrowIfNull(instruction);
@@ -111,6 +123,8 @@ public sealed record NpcPromptContext
         return new NpcPromptContext
         {
             Name = npc.Name,
+            Position = npc.Position,
+            PlayerHeldItem = playerHeldItem,
             Personality = personality,
             Skills = npc.Skills ?? Array.Empty<string>(),
             CurrentTask = npc.CurrentTaskSummary,

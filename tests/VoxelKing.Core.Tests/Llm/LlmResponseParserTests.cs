@@ -115,12 +115,25 @@ public class LlmResponseParserTests
         Assert.Equal(new string('A', 200), response.Reply);
     }
 
+    [Fact]
+    public void TryParse_ScriptOnly_SucceedsWithDefaults()
+    {
+        string json = @"{ ""script"": ""function main()\n  npc.wait(1)\nend"" }";
+        bool ok = LlmResponseParser.TryParse(json, out var response, out string? error);
+
+        Assert.True(ok);
+        Assert.Null(error);
+        Assert.NotNull(response);
+        Assert.Equal("function main()\n  npc.wait(1)\nend", response.Script);
+        Assert.Equal(string.Empty, response.Reply);
+        Assert.False(response.NeedsClarification);
+        Assert.False(response.KeepCurrentTask);
+        Assert.Equal(string.Empty, response.TaskSummary);
+    }
+
     [Theory]
-    [InlineData(@"{ ""needs_clarification"": false, ""keep_current_task"": false, ""task_summary"": ""t"", ""script"": """" }", "reply")]
-    [InlineData(@"{ ""reply"": ""hi"", ""keep_current_task"": false, ""task_summary"": ""t"", ""script"": """" }", "needs_clarification")]
-    [InlineData(@"{ ""reply"": ""hi"", ""needs_clarification"": false, ""task_summary"": ""t"", ""script"": """" }", "keep_current_task")]
-    [InlineData(@"{ ""reply"": ""hi"", ""needs_clarification"": false, ""keep_current_task"": false, ""script"": """" }", "task_summary")]
     [InlineData(@"{ ""reply"": ""hi"", ""needs_clarification"": false, ""keep_current_task"": false, ""task_summary"": ""t"" }", "script")]
+    [InlineData(@"{ }", "script")]
     public void TryParse_MissingRequiredProperty_Fails(string json, string missingProperty)
     {
         bool ok = LlmResponseParser.TryParse(json, out var response, out string? error);

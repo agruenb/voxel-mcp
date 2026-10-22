@@ -39,6 +39,7 @@ public interface IBrainCompiler
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
         bool autoApply = true,
+        string? playerHeldItem = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -52,6 +53,7 @@ public interface IBrainCompiler
         IReadOnlyList<ConversationTurn>? conversation = null,
         double currentTime = -1,
         bool autoApply = true,
+        string? playerHeldItem = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

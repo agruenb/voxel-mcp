@@ -9,32 +9,32 @@ using VoxelKing.Core.Common;
 /// </summary>
 public sealed class GodotLogSink : ILogSink
 {
-    public void Emit(LogLevel level, string category, string message, Exception? exception = null)
-    {
-        var formatted = string.IsNullOrEmpty(category)
-            ? $"[{level}] {message}"
-            : $"[{category}] [{level}] {message}";
+	public void Emit(LogLevel level, string category, string message, Exception? exception = null)
+	{
+		var formatted = string.IsNullOrEmpty(category)
+			? $"[{level}] {message}"
+			: $"[{category}] [{level}] {message}";
 
-        if (exception != null)
-        {
-            formatted += $"\n{exception}";
-        }
+		if (exception != null)
+		{
+			formatted += $"\n{exception}";
+		}
 
-        switch (level)
-        {
-            case LogLevel.Error:
-                GD.PushError(formatted);
-                break;
-            case LogLevel.Warning:
-                GD.PushWarning(formatted);
-                break;
-            case LogLevel.Info:
-            case LogLevel.Debug:
-            case LogLevel.Trace:
-                GD.Print(formatted);
-                break;
-            default:
-                break;
-        }
-    }
+		switch (level)
+		{
+			case LogLevel.Error:
+				GD.PushError(formatted);
+				break;
+			case LogLevel.Warning:
+				GD.PushWarning(formatted);
+				break;
+			case LogLevel.Info:
+			case LogLevel.Debug:
+			case LogLevel.Trace:
+				GD.Print(formatted);
+				break;
+			default:
+				break;
+		}
+	}
 }
