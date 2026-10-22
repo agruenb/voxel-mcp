@@ -42,6 +42,14 @@ public partial class GameRoot : Node
     {
         string basePath = ProjectSettings.GlobalizePath("res://config/game_config.json");
         string userPath = ProjectSettings.GlobalizePath("user://config.json");
+        if (!File.Exists(userPath))
+        {
+            string localWorkspaceUserConfig = ProjectSettings.GlobalizePath("res://config/user_config.json");
+            if (File.Exists(localWorkspaceUserConfig))
+            {
+                userPath = localWorkspaceUserConfig;
+            }
+        }
         string blocksPath = ProjectSettings.GlobalizePath("res://config/blocks.json");
 
         var config = GameConfigLoader.LoadFromFiles(basePath, userPath);
