@@ -5,6 +5,7 @@ using System.IO;
 using Godot;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Npc;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Player;
@@ -27,6 +28,9 @@ public partial class GameRoot : Node
     public ChunkStreamer ChunkStreamer { get; private set; } = null!;
     public ContainerManager ContainerManager { get; private set; } = new();
     public NamedPlaces NamedPlaces { get; private set; } = new();
+    public EntityRegistry EntityRegistry { get; private set; } = null!;
+    public NpcManager NpcManager { get; private set; } = null!;
+    public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
 
@@ -83,6 +87,18 @@ public partial class GameRoot : Node
         TerrainGenerator = new TerrainGenerator(config.World, BlockRegistry);
         ChunkMesher = new ChunkMesher(BlockRegistry);
 
+        EntityRegistry = new EntityRegistry(config.World.PerceptionRadiusBlocks);
+        NpcManager = new NpcManager(
+            EntityRegistry,
+            config.Npc,
+            VoxelWorld,
+            EventBus,
+            LoggerFactory.CreateLogger<NpcManager>()
+        )
+        {
+            FreezeDistance = config.World.LoadedChunkRadius * config.World.ChunkSize
+        };
+
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
         if (ChunkStreamer.GetParent() == null)
         {
@@ -110,6 +126,15 @@ public partial class GameRoot : Node
             player.ApplyConfig(config.Player);
             player.SpawnOnSurface(TerrainGenerator, 0, 0, VoxelWorld);
             ChunkStreamer.FocusNode = player;
+
+            PlayerEntity = new PlayerEntity(
+                EntityRegistry.GenerateNextId(),
+                "Player",
+                new Vec3(player.GlobalPosition.X, player.GlobalPosition.Y, player.GlobalPosition.Z),
+                player.Inventory
+            );
+            EntityRegistry.Register(PlayerEntity);
+
             Logger.LogInfo($"Player initialized and spawned at {player.GlobalPosition}");
         }
         else
@@ -136,6 +161,25 @@ public partial class GameRoot : Node
         Logger.LogInfo($"BlockRegistry loaded with {BlockRegistry.Count} block types");
         Logger.LogInfo($"TerrainGenerator initialized with seed {config.World.Seed}");
         Logger.LogInfo("ChunkMesher initialized");
+        Logger.LogInfo("NpcManager and EntityRegistry initialized");
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+
+        if (PlayerEntity != null)
+        {
+            var player = GetNodeOrNull<PlayerController>("Player");
+            if (player != null)
+            {
+                PlayerEntity.Position = new Vec3(player.GlobalPosition.X, player.GlobalPosition.Y, player.GlobalPosition.Z);
+                EntityRegistry.UpdateSpatial(PlayerEntity);
+            }
+        }
+
+        NpcManager.PhysicsTick(dt);
+        NpcManager.BrainTick(dt);
     }
 
     public override void _Process(double delta)
