@@ -63,6 +63,7 @@ public partial class GameRoot : Node
     public IPromptBuilder PromptBuilder { get; private set; } = null!;
     public IBrainValidator BrainValidator { get; private set; } = null!;
     public IBrainCompiler BrainCompiler { get; private set; } = null!;
+    public DayNightCycle DayNightCycle { get; private set; } = null!;
 
     public override void _Ready()
     {
@@ -189,6 +190,10 @@ public partial class GameRoot : Node
                 {
                     SaveManager.RestoreNamedPlaces(NamedPlaces, worldData.NamedPlaces);
                     SaveManager.RestoreContainers(ContainerManager, worldData.Containers);
+                    if (PerceptionService != null)
+                    {
+                        PerceptionService.WorldTime.TotalElapsedSeconds = worldData.WorldTime;
+                    }
                     Logger.LogInfo($"Restored {worldData.Containers.Count} containers and {worldData.NamedPlaces.Count} named places from save.");
                 }
 
@@ -318,6 +323,15 @@ public partial class GameRoot : Node
         AddChild(DebugPathRenderer);
         DebugPathRenderer.Initialize(NpcManager);
 
+        var sunLight = GetNodeOrNull<DirectionalLight3D>("DirectionalLight3D");
+        var worldEnv = GetNodeOrNull<WorldEnvironment>("WorldEnvironment");
+        DayNightCycle = new DayNightCycle { Name = "DayNightCycle" };
+        AddChild(DayNightCycle);
+        if (PerceptionService?.WorldTime != null)
+        {
+            DayNightCycle.Initialize(PerceptionService.WorldTime, config.World, sunLight, worldEnv);
+        }
+
         DebugConsole = new DebugConsole
         {
             Name = "DebugConsole",
@@ -325,7 +339,9 @@ public partial class GameRoot : Node
             VoxelWorld = VoxelWorld,
             Player = player,
             PathfindingService = PathfindingService,
-            PathRenderer = DebugPathRenderer
+            PathRenderer = DebugPathRenderer,
+            WorldTime = PerceptionService?.WorldTime,
+            DayNightCycle = DayNightCycle
         };
         AddChild(DebugConsole);
 
@@ -374,7 +390,8 @@ public partial class GameRoot : Node
             Player = player,
             BrainCompiler = BrainCompiler,
             LlmQueue = LlmQueue,
-            PathRenderer = DebugPathRenderer
+            PathRenderer = DebugPathRenderer,
+            WorldTime = PerceptionService?.WorldTime
         };
         AddChild(NpcInspectorOverlay);
         if (player != null)
@@ -473,6 +490,7 @@ public partial class GameRoot : Node
     public override void _Process(double delta)
     {
         Dispatcher.Drain(TimeSpan.FromMilliseconds(4));
+        DayNightCycle?.Advance((float)delta);
 
         if (ConfigProvider?.Config?.Save != null && ConfigProvider.Config.Save.Enabled && ConfigProvider.Config.Save.AutosaveIntervalSeconds > 0)
         {
@@ -518,7 +536,7 @@ public partial class GameRoot : Node
             Version = 1,
             WorldName = worldName ?? ConfigProvider.Config.Save.WorldName,
             Seed = ConfigProvider.Config.World.Seed,
-            WorldTime = 0.0,
+            WorldTime = PerceptionService?.WorldTime.TotalElapsedSeconds ?? 0.0,
             SavedAtUtc = DateTime.UtcNow,
             NamedPlaces = SaveManager.CreateNamedPlacesDto(NamedPlaces),
             Containers = SaveManager.CreateContainerDtos(ContainerManager)
@@ -555,6 +573,11 @@ public partial class GameRoot : Node
             {
                 SaveManager.RestoreNamedPlaces(NamedPlaces, worldData.NamedPlaces);
                 SaveManager.RestoreContainers(ContainerManager, worldData.Containers);
+                if (PerceptionService != null)
+                {
+                    PerceptionService.WorldTime.TotalElapsedSeconds = worldData.WorldTime;
+                    DayNightCycle?.UpdateVisuals();
+                }
             }
 
             var modifiedChunks = SaveManager.LoadModifiedChunks(targetDir, BlockRegistry.IsIndexed);

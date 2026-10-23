@@ -36,7 +36,9 @@ public sealed class PerceptionService : IPerceptionService
         BlockRadius = config?.PerceptionRadiusBlocks ?? DefaultBlockRadius;
         EntityRadius = config?.PerceptionRadiusEntities ?? DefaultEntityRadius;
         Walkability = walkability ?? new Walkability(world);
-        WorldTime = worldTime ?? new WorldTime();
+        WorldTime = worldTime ?? (config != null
+            ? new WorldTime(config.InitialHour, config.DayLengthSeconds, config.DayStartHour, config.DayEndHour)
+            : new WorldTime());
     }
 
     public PerceptionService(

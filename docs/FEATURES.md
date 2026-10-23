@@ -95,7 +95,7 @@ flowchart LR
 | F-406 | Spawn multiple NPCs with profiles | M4 | F-208 | Done |
 | F-501 | Save / load | M5 | F-107, F-303 | Done |
 | F-502 | NPC inspector overlay | M5 | F-306 | Done |
-| F-503 | Day/night cycle & world time | M5 | F-104 | Todo |
+| F-503 | Day/night cycle & world time | M5 | F-104 | Done |
 
 ---
 

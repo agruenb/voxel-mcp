@@ -23,6 +23,10 @@ public class ConfigTests
         Assert.Equal(1337, config.World.Seed);
         Assert.Equal(24, config.World.PerceptionRadiusBlocks);
         Assert.Equal(32, config.World.PerceptionRadiusEntities);
+        Assert.Equal(600.0f, config.World.DayLengthSeconds);
+        Assert.Equal(12.0f, config.World.InitialHour);
+        Assert.Equal(6.0f, config.World.DayStartHour);
+        Assert.Equal(18.0f, config.World.DayEndHour);
 
         Assert.Equal(60, config.Npc.PhysicsTickRateHz);
         Assert.Equal(10, config.Npc.BrainTickRateHz);

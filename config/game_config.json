@@ -4,7 +4,11 @@
     "loadedChunkRadius": 6,
     "seed": 1337,
     "perceptionRadiusBlocks": 24,
-    "perceptionRadiusEntities": 32
+    "perceptionRadiusEntities": 32,
+    "dayLengthSeconds": 600.0,
+    "initialHour": 12.0,
+    "dayStartHour": 6.0,
+    "dayEndHour": 18.0
   },
   "npc": {
     "physicsTickRateHz": 60,

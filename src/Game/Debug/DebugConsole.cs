@@ -8,8 +8,10 @@ using VoxelKing.Core.Entities;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Actions;
+using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Player;
+using VoxelKing.Game.World;
 
 /// <summary>
 /// Debug command console and shortcut handler for spawning, moving, jumping, and inspecting NPCs at runtime.
@@ -26,6 +28,8 @@ public partial class DebugConsole : CanvasLayer
     public PlayerController? Player { get; set; }
     public IPathfindingService? PathfindingService { get; set; }
     public DebugPathRenderer? PathRenderer { get; set; }
+    public IWorldTime? WorldTime { get; set; }
+    public DayNightCycle? DayNightCycle { get; set; }
 
     public bool IsOpen => _isOpen;
 
@@ -342,6 +346,9 @@ public partial class DebugConsole : CanvasLayer
                 Log("  brain                     - Toggle Lua Brain Console (F2)");
                 Log("  save [world]              - Save world, chunks, NPCs, and player");
                 Log("  load [world]              - Load world, chunks, NPCs, and player");
+                Log("  time [hours]              - Show or set world time in hours (0..24)");
+                Log("  day / night               - Set world time to midday (12:00) or night (22:00)");
+                Log("  timescale [seconds]       - Show or set day cycle length in seconds");
                 Log("Hotkeys: F2=BrainConsole, F4=Spawn, F5=Move, F6=Jump, F7=Stop, F8=NavToLook");
                 break;
 
@@ -764,6 +771,73 @@ public partial class DebugConsole : CanvasLayer
                 else
                 {
                     Log("GameRoot not found; cannot load.");
+                }
+                break;
+            }
+
+            case "time":
+            {
+                if (WorldTime == null)
+                {
+                    Log("WorldTime service is not available.");
+                    break;
+                }
+
+                if (parts.Length > 1 && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float targetHour))
+                {
+                    WorldTime.SetTime(targetHour);
+                    DayNightCycle?.UpdateVisuals();
+                    Log($"Set world time to {WorldTime.TimeOfDayHours:F2}h ({(WorldTime.IsDay ? "Day" : "Night")}).");
+                }
+                else
+                {
+                    Log($"World time: {WorldTime.TimeOfDayHours:F2}h ({(WorldTime.IsDay ? "Day" : "Night")}) | Cycle: {WorldTime.DayLengthSeconds:F0}s | Total: {WorldTime.TotalElapsedSeconds:F1}s");
+                }
+                break;
+            }
+
+            case "day":
+            {
+                if (WorldTime == null)
+                {
+                    Log("WorldTime service is not available.");
+                    break;
+                }
+                WorldTime.SetTime(12.0f);
+                DayNightCycle?.UpdateVisuals();
+                Log("Set world time to Day (12.00h).");
+                break;
+            }
+
+            case "night":
+            {
+                if (WorldTime == null)
+                {
+                    Log("WorldTime service is not available.");
+                    break;
+                }
+                WorldTime.SetTime(22.0f);
+                DayNightCycle?.UpdateVisuals();
+                Log("Set world time to Night (22.00h).");
+                break;
+            }
+
+            case "timescale":
+            {
+                if (WorldTime == null)
+                {
+                    Log("WorldTime service is not available.");
+                    break;
+                }
+
+                if (parts.Length > 1 && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float newLength))
+                {
+                    WorldTime.DayLengthSeconds = newLength;
+                    Log($"Set day cycle length to {WorldTime.DayLengthSeconds:F1} seconds per 24 hours.");
+                }
+                else
+                {
+                    Log($"Current day cycle length: {WorldTime.DayLengthSeconds:F1} seconds per 24 hours.");
                 }
                 break;
             }

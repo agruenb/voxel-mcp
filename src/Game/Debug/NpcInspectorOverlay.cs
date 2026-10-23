@@ -10,6 +10,7 @@ using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Core.Llm;
 using VoxelKing.Core.Npc;
+using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Game.Player;
 
 /// <summary>
@@ -88,6 +89,7 @@ public partial class NpcInspectorOverlay : CanvasLayer
     public IBrainCompiler? BrainCompiler { get; set; }
     public ILlmRequestQueue? LlmQueue { get; set; }
     public DebugPathRenderer? PathRenderer { get; set; }
+    public IWorldTime? WorldTime { get; set; }
 
     public bool IsOpen => _isOpen;
     public bool IsWalkMode => _isWalkMode;
@@ -469,8 +471,9 @@ public partial class NpcInspectorOverlay : CanvasLayer
 
         string skillsText = npc.Skills.Count > 0 ? string.Join(", ", npc.Skills) : "general";
         string personalityText = !string.IsNullOrWhiteSpace(npc.Personality) ? npc.Personality : (!string.IsNullOrWhiteSpace(npc.Profile) ? npc.Profile : "neutral");
+        string timeInfo = WorldTime != null ? $" | Time: {WorldTime.TimeOfDayHours:F1}h ({(WorldTime.IsDay ? "Day" : "Night")})" : string.Empty;
 
-        _npcDetailsLabel.Text = $"Pos: ({npc.Position.X:F1}, {npc.Position.Y:F1}, {npc.Position.Z:F1}) | Dist: {dist:F1}m\nProfile: {personalityText} | Skills: [{skillsText}]";
+        _npcDetailsLabel.Text = $"Pos: ({npc.Position.X:F1}, {npc.Position.Y:F1}, {npc.Position.Z:F1}) | Dist: {dist:F1}m{timeInfo}\nProfile: {personalityText} | Skills: [{skillsText}]";
 
         // Health Bar
         _healthBar.MaxValue = npc.MaxHealth;

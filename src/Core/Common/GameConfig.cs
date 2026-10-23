@@ -24,6 +24,10 @@ public sealed record WorldConfig
     public int Seed { get; set; } = 1337;
     public int PerceptionRadiusBlocks { get; set; } = 24;
     public int PerceptionRadiusEntities { get; set; } = 32;
+    public float DayLengthSeconds { get; set; } = 600.0f;
+    public float InitialHour { get; set; } = 12.0f;
+    public float DayStartHour { get; set; } = 6.0f;
+    public float DayEndHour { get; set; } = 18.0f;
 }
 
 /// <summary>
