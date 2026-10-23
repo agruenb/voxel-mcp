@@ -8,6 +8,7 @@ using MoonSharp.Interpreter;
 using VoxelKing.Core.Brain;
 using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
+using VoxelKing.Core.Llm;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Actions;
@@ -776,6 +777,49 @@ public class BrainHostTests
         // Acceptance criterion: 20 NPCs cost < 1 ms per brain tick total
         Assert.True(msPerTickAll20Npcs < 2.5,
             $"Expected 20 NPCs tick cost < 2.5ms, got {msPerTickAll20Npcs:F3}ms per tick (total {totalMs:F2}ms for {iterations} iterations)");
+    }
+
+    [Fact]
+    public void BudgetTracking_InstructionsCountedPerTickAndTotal()
+    {
+        var limits = new BrainLimitsConfig { MaxInstructionsPerTick = 2000 };
+        var (npc, host, _, _) = CreateTestHost(limits);
+
+        string script = @"
+            local counter = 0
+            function main()
+                for i = 1, 50 do
+                    counter = counter + 1
+                end
+                npc.wait(1)
+            end
+        ";
+
+        host.LoadScript(script);
+
+        host.Tick(0.1f);
+
+        Assert.True(host.LastTickInstructions > 0, $"Executing loop should record positive LastTickInstructions, got {host.LastTickInstructions}.");
+        Assert.True(host.TotalInstructionsExecuted > 0, $"Total instructions should accumulate, got {host.TotalInstructionsExecuted}.");
+        Assert.Equal(2000, host.MaxInstructionsPerTick);
+        Assert.Equal(0, host.ConsecutiveForcedYields);
+    }
+
+    [Fact]
+    public void NpcState_LlmMetadata_TracksPromptResponseAndTokens()
+    {
+        var (npc, _, _, _) = CreateTestHost();
+        Assert.Null(npc.LastPrompt);
+        Assert.Null(npc.LastResponse);
+        Assert.Equal(LlmUsage.Zero, npc.TotalTokenUsage);
+
+        npc.LastPrompt = "System: You are Bob\nUser: Chop 5 wood";
+        npc.LastResponse = "{\"reply\":\"On it!\"}";
+        npc.TotalTokenUsage = new LlmUsage(120, 45, 165);
+
+        Assert.Equal("System: You are Bob\nUser: Chop 5 wood", npc.LastPrompt);
+        Assert.Equal("{\"reply\":\"On it!\"}", npc.LastResponse);
+        Assert.Equal(165, npc.TotalTokenUsage.TotalTokens);
     }
 
     #endregion

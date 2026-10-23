@@ -639,4 +639,32 @@ public class BrainCompilerTests
         Assert.NotNull(npc1.BrainHost?.CurrentScript);
         Assert.NotNull(npc2.BrainHost?.CurrentScript);
     }
+
+    [Fact]
+    public async Task CompileAsync_RecordsPromptResponseAndTokenUsageOnNpc()
+    {
+        var npc = CreateTestNpc("Bob");
+        var mockClient = new MockLlmClient();
+        var compiler = BrainCompiler.FromClient(
+            mockClient,
+            _promptBuilder,
+            _validator,
+            _dispatcher,
+            _speechSystem,
+            _registry,
+            config: _config);
+
+        Assert.Null(npc.LastPrompt);
+        Assert.Null(npc.LastResponse);
+        Assert.Equal(LlmUsage.Zero, npc.TotalTokenUsage);
+
+        var result = await compiler.CompileAsync(npc, "gather wood");
+        _dispatcher.Drain();
+
+        Assert.Equal(CompileStatus.Success, result.Status);
+        Assert.NotNull(npc.LastPrompt);
+        Assert.Contains("gather wood", npc.LastPrompt);
+        Assert.NotNull(npc.LastResponse);
+        Assert.True(npc.TotalTokenUsage.TotalTokens > 0, "Token usage should be accumulated from LLM response.");
+    }
 }

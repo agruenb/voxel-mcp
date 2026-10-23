@@ -68,7 +68,6 @@ public sealed class FileLlmRequestLogger : ILlmRequestLogger
                     systemInstruction = entry.Request.SystemInstruction,
                     messages = entry.Request.Messages,
                     model = entry.Request.Model,
-                    temperature = entry.Request.Temperature,
                     maxOutputTokens = entry.Request.MaxOutputTokens
                 },
                 response = new

@@ -11,4 +11,5 @@ public interface IGameConfig
     LlmConfig Llm { get; }
     DebugConfig Debug { get; }
     PlayerConfig Player { get; }
+    SaveConfig Save { get; }
 }

@@ -70,6 +70,24 @@ public sealed class BrainHost : IBrainHost
         }
     }
 
+    private int _lastTickInstructions;
+    private long _totalInstructionsExecuted;
+
+    /// <inheritdoc />
+    public int LastTickInstructions => _lastTickInstructions;
+
+    /// <inheritdoc />
+    public long TotalInstructionsExecuted => _totalInstructionsExecuted;
+
+    /// <inheritdoc />
+    public int MaxInstructionsPerTick => _limitsConfig.MaxInstructionsPerTick;
+
+    /// <inheritdoc />
+    public int ConsecutiveForcedYields => _consecutiveForcedYields;
+
+    /// <inheritdoc />
+    public int MaxConsecutiveForcedYields => _limitsConfig.MaxConsecutiveForcedYields;
+
     /// <inheritdoc />
     public bool HasActiveTask => _status == BrainStatus.Running;
 
@@ -118,6 +136,16 @@ public sealed class BrainHost : IBrainHost
                 float time = context != null ? context.CurrentTime : 0f;
                 AddLog($"[{time:F1}s] said: \"{text}\"");
                 OnBrainSaid(text);
+            },
+            actionCallback: (name, args) =>
+            {
+                RecordActionInstructionUsage();
+                var argList = new List<object?>();
+                for (int i = 1; i < args.Count; i++)
+                {
+                    argList.Add(LuaValueConverter.ToClrObject(args[i]));
+                }
+                return new ActionRequest(name, argList, context.CurrentTime);
             });
         _context = context;
 
@@ -206,6 +234,12 @@ public sealed class BrainHost : IBrainHost
             _logger?.LogWarning($"NPC '{_npc.Name}' (ID {_npc.Id}) top-level error: {_lastError}");
             return false;
         }
+
+        int topRemaining = (int)Math.Max(0L, topLevelCoro.Coroutine.AutoYieldCounter);
+        int topConsumed = _limitsConfig.MaxTopLevelChunkInstructions - topRemaining;
+        _totalInstructionsExecuted = topConsumed;
+        _lastTickInstructions = topConsumed;
+        _consecutiveForcedYields = 0;
 
         // 5. Verify required main() function
         var mainVal = _script.Globals.Get("main");
@@ -437,12 +471,18 @@ public sealed class BrainHost : IBrainHost
             }
 
             _context.IsInsideHandler = true;
+            int initialHandlerBudget = _limitsConfig.MaxInstructionsPerHandler;
             try
             {
                 var coro = _script.CreateCoroutine(handlerFunc);
-                coro.Coroutine.AutoYieldCounter = _limitsConfig.MaxInstructionsPerHandler;
+                coro.Coroutine.AutoYieldCounter = initialHandlerBudget;
                 var dynArgs = ConvertArgsToDynValue(evt.Args);
                 coro.Coroutine.Resume(dynArgs);
+
+                int handlerRemaining = (int)Math.Max(0L, coro.Coroutine.AutoYieldCounter);
+                int handlerConsumed = initialHandlerBudget - handlerRemaining;
+                _lastTickInstructions += handlerConsumed;
+                _totalInstructionsExecuted += handlerConsumed;
 
                 if (coro.Coroutine.State == CoroutineState.ForceSuspended)
                 {
@@ -492,7 +532,8 @@ public sealed class BrainHost : IBrainHost
         }
 
         _context.ClearLastActionRequest();
-        _mainCoroutine.Coroutine.AutoYieldCounter = _limitsConfig.MaxInstructionsPerTick;
+        int initialBudget = _limitsConfig.MaxInstructionsPerTick;
+        _mainCoroutine.Coroutine.AutoYieldCounter = initialBudget;
 
         try
         {
@@ -507,14 +548,18 @@ public sealed class BrainHost : IBrainHost
         }
         catch (ScriptRuntimeException ex)
         {
+            RecordInstructionsUsed(initialBudget);
             HandleRuntimeError(ex.Message);
             return;
         }
         catch (Exception ex)
         {
+            RecordInstructionsUsed(initialBudget);
             HandleRuntimeError(ex.Message);
             return;
         }
+
+        RecordInstructionsUsed(initialBudget);
 
         // 1. Check if restart requested
         if (_context.RestartRequested)
@@ -549,11 +594,38 @@ public sealed class BrainHost : IBrainHost
             else
             {
                 // Forced yield by AutoYieldCounter
+                _lastTickInstructions = _limitsConfig.MaxInstructionsPerTick;
+                _totalInstructionsExecuted += _limitsConfig.MaxInstructionsPerTick;
                 _consecutiveForcedYields++;
                 if (_consecutiveForcedYields >= _limitsConfig.MaxConsecutiveForcedYields)
                 {
                     HandleRuntimeError("busy loop");
                 }
+            }
+        }
+    }
+
+    private void RecordActionInstructionUsage()
+    {
+        if (_mainCoroutine?.Coroutine != null)
+        {
+            int remaining = (int)Math.Max(0L, _mainCoroutine.Coroutine.AutoYieldCounter);
+            int consumed = _limitsConfig.MaxInstructionsPerTick - remaining;
+            _lastTickInstructions = Math.Max(1, consumed);
+            _totalInstructionsExecuted += Math.Max(1, consumed);
+        }
+    }
+
+    private void RecordInstructionsUsed(int initial)
+    {
+        if (_mainCoroutine?.Coroutine != null && _lastTickInstructions == 0)
+        {
+            int remaining = (int)Math.Max(0L, _mainCoroutine.Coroutine.AutoYieldCounter);
+            int consumed = initial - remaining;
+            if (consumed > 0)
+            {
+                _lastTickInstructions = consumed;
+                _totalInstructionsExecuted += consumed;
             }
         }
     }

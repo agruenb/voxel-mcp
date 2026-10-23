@@ -340,6 +340,8 @@ public partial class DebugConsole : CanvasLayer
                 Log("  cancel_npc <id|name>      - Cancel active action on NPC");
                 Log("  list_npcs                 - List all active NPCs");
                 Log("  brain                     - Toggle Lua Brain Console (F2)");
+                Log("  save [world]              - Save world, chunks, NPCs, and player");
+                Log("  load [world]              - Load world, chunks, NPCs, and player");
                 Log("Hotkeys: F2=BrainConsole, F4=Spawn, F5=Move, F6=Jump, F7=Stop, F8=NavToLook");
                 break;
 
@@ -730,6 +732,38 @@ public partial class DebugConsole : CanvasLayer
                 else
                 {
                     Log($"NPC '{target.Name}' has no active running action.");
+                }
+                break;
+            }
+
+            case "save":
+            {
+                string? world = parts.Length > 1 ? parts[1] : null;
+                var gameRoot = GetParent() as VoxelKing.Game.Bootstrap.GameRoot;
+                if (gameRoot != null)
+                {
+                    gameRoot.SaveGame(world);
+                    Log($"Saved game successfully (world: {world ?? gameRoot.ConfigProvider.Config.Save.WorldName}).");
+                }
+                else
+                {
+                    Log("GameRoot not found; cannot save.");
+                }
+                break;
+            }
+
+            case "load":
+            {
+                string? world = parts.Length > 1 ? parts[1] : null;
+                var gameRoot = GetParent() as VoxelKing.Game.Bootstrap.GameRoot;
+                if (gameRoot != null)
+                {
+                    bool ok = gameRoot.LoadGame(world);
+                    Log(ok ? $"Loaded game successfully (world: {world ?? gameRoot.ConfigProvider.Config.Save.WorldName})." : "Failed to load game (save not found or corrupted).");
+                }
+                else
+                {
+                    Log("GameRoot not found; cannot load.");
                 }
                 break;
             }

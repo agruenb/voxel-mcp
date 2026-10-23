@@ -178,8 +178,9 @@ public class BrainCompiler : IBrainCompiler
                 builtPrompt.SystemInstruction,
                 messages,
                 _config.Model,
-                _config.Temperature,
                 _config.MaxOutputTokens);
+
+            npc.LastPrompt = $"[System Instruction]\n{builtPrompt.SystemInstruction}\n\n[User Instruction]\n{builtPrompt.UserContent}";
 
             // 2. Dispatch request to queue (turn 1)
             var response = await _requestQueue.EnqueueAsync(
@@ -187,6 +188,15 @@ public class BrainCompiler : IBrainCompiler
                 npc.Name,
                 request,
                 linkedCts.Token).ConfigureAwait(false);
+
+            npc.LastResponse = response.RawText;
+            if (response.Usage.TotalTokens > 0)
+            {
+                npc.TotalTokenUsage = new LlmUsage(
+                    npc.TotalTokenUsage.PromptTokens + response.Usage.PromptTokens,
+                    npc.TotalTokenUsage.OutputTokens + response.Usage.OutputTokens,
+                    npc.TotalTokenUsage.TotalTokens + response.Usage.TotalTokens);
+            }
 
             // 3. Handle transport or provider failure (network, timeout, quota, etc.)
             // Note: InvalidJson is a Stage 1 validation failure per LLM_INTEGRATION §4 and enters the repair loop.
@@ -302,7 +312,6 @@ public class BrainCompiler : IBrainCompiler
                     builtPrompt.SystemInstruction,
                     messages,
                     _config.Model,
-                    _config.Temperature,
                     _config.MaxOutputTokens);
 
                 response = await _requestQueue.EnqueueAsync(
@@ -310,6 +319,15 @@ public class BrainCompiler : IBrainCompiler
                     npc.Name,
                     repairRequest,
                     linkedCts.Token).ConfigureAwait(false);
+
+                npc.LastResponse = response.RawText;
+                if (response.Usage.TotalTokens > 0)
+                {
+                    npc.TotalTokenUsage = new LlmUsage(
+                        npc.TotalTokenUsage.PromptTokens + response.Usage.PromptTokens,
+                        npc.TotalTokenUsage.OutputTokens + response.Usage.OutputTokens,
+                        npc.TotalTokenUsage.TotalTokens + response.Usage.TotalTokens);
+                }
 
                 bool isRepairStage1Failure = response.Error?.Kind == LlmErrorKind.InvalidJson ||
                                              (response.Error == null && response.Content == null && !string.IsNullOrWhiteSpace(response.RawText));

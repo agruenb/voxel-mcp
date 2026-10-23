@@ -53,6 +53,7 @@ public partial class PlayerController : CharacterBody3D
     public ChestUI? ChestUI { get; set; }
     public HotbarUI? HotbarUI { get; set; }
     public DialogueUI? DialogueUI { get; set; }
+    public Debug.NpcInspectorOverlay? NpcInspectorOverlay { get; set; }
     public NpcManager? NpcManager { get; set; }
     public PlayerEntity? PlayerEntity { get; set; }
 
@@ -63,6 +64,20 @@ public partial class PlayerController : CharacterBody3D
 
     private float _pitch;
     private float _yaw;
+
+    public float Yaw => _yaw;
+    public float Pitch => _pitch;
+
+    public void SetLookRotation(float yaw, float pitch)
+    {
+        _yaw = yaw;
+        _pitch = Mathf.Clamp(pitch, -Mathf.Pi * 0.49f, Mathf.Pi * 0.49f);
+        Rotation = new Vector3(0, _yaw, 0);
+        if (Head != null)
+        {
+            Head.Rotation = new Vector3(_pitch, 0, 0);
+        }
+    }
     private float _headYOffset = 0f;
     private bool _wasOnFloor = false;
     private bool _hasGroundedOnce = false;

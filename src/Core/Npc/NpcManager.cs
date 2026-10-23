@@ -207,6 +207,69 @@ public sealed class NpcManager : IDisposable
     }
 
     /// <summary>
+    /// Restores a previously saved NPC into the simulation, wiring its systems, arbiter, brain host, and resuming its script if provided.
+    /// </summary>
+    public NpcState RestoreNpc(NpcState npc, string? brainSource = null)
+    {
+        ArgumentNullException.ThrowIfNull(npc);
+
+        _registry.EnsureNextIdAtLeast(npc.Id.Value);
+        _registry.Register(npc);
+        _npcsById[npc.Id] = npc;
+
+        var tier = CalculateLodTier(npc.Position);
+        AssignNpcToTier(npc, tier);
+
+        if (PerceptionService != null)
+        {
+            npc.Perception = PerceptionService.For(npc);
+        }
+
+        if (npc.Arbiter == null && EnableArbiters && _voxelWorld != null)
+        {
+            var reflex = new ReflexLayer(npc, _voxelWorld);
+            var actionFactory = new DefaultActionFactory(
+                _voxelWorld,
+                BlockRegistry,
+                PathfindingService,
+                _registry,
+                ContainerManager,
+                _eventBus,
+                this);
+            var brainHost = new BrainHost(
+                npc,
+                actionFactory: actionFactory,
+                limitsConfig: BrainLimitsConfig,
+                entityRegistry: _registry,
+                eventBus: _eventBus,
+                logger: _logger);
+            npc.BrainHost = brainHost;
+            var idle = new IdleLayer(npc, _voxelWorld, PathfindingService, _registry, _eventBus);
+            npc.Arbiter = new BehaviourArbiter(npc, reflex, brainHost, idle);
+        }
+
+        npc.ConversationStateChanged += OnNpcConversationStateChanged;
+
+        _eventBus?.Publish(new EntitySpawned(npc));
+        _logger?.LogDebug($"Restored NPC '{npc.Name}' (ID {npc.Id}) at {npc.Position} in LOD {tier}");
+
+        if (!string.IsNullOrWhiteSpace(brainSource) && npc.BrainHost != null)
+        {
+            bool loaded = npc.BrainHost.LoadScript(brainSource, npc.InstructorId);
+            if (!loaded)
+            {
+                _logger?.LogWarning($"Failed to restart restored brain for NPC '{npc.Name}': {npc.BrainHost.LastError}");
+            }
+            else
+            {
+                _logger?.LogInfo($"Restarted brain for NPC '{npc.Name}' from save.");
+            }
+        }
+
+        return npc;
+    }
+
+    /// <summary>
     /// Spawns a new NPC based on an <see cref="NpcProfile"/> near a given spawn origin.
     /// </summary>
     public NpcState SpawnNpc(
@@ -345,6 +408,18 @@ public sealed class NpcManager : IDisposable
         _logger?.LogDebug($"Despawned NPC '{npc.Name}' (ID {id})");
 
         return true;
+    }
+
+    /// <summary>
+    /// Despawns all active NPCs from the simulation and publishes despawn events.
+    /// </summary>
+    public void DespawnAllNpcs()
+    {
+        var ids = _npcsById.Keys.ToList();
+        foreach (var id in ids)
+        {
+            DespawnNpc(id);
+        }
     }
 
     private void OnNpcConversationStateChanged(NpcState npc, NpcConversationState oldState, NpcConversationState newState)

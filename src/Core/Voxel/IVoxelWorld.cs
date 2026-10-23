@@ -24,6 +24,11 @@ public interface IVoxelWorld
     IEnumerable<ChunkData> Chunks { get; }
 
     /// <summary>
+    /// Gets all currently loaded chunks that have been modified.
+    /// </summary>
+    IEnumerable<ChunkData> ModifiedChunks { get; }
+
+    /// <summary>
     /// Gets the block ID at the specified world coordinates.
     /// Returns Air (0) if the chunk is not loaded.
     /// </summary>

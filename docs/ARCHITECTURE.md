@@ -298,8 +298,8 @@ sequenceDiagram
   and responses are logged in full to `user://logs/llm/` for prompt debugging.
 - **Brain console (debug):** select an NPC and apply a Lua script directly (from file or text),
   bypassing the LLM. This is the primary tool to develop the runtime before the LLM is integrated.
-- **NPC inspector overlay:** current layer, action, path line, brain log output, instruction budget
-  usage, last error, last prompt/response.
+- **NPC inspector overlay (F3):** current layer, action, path line, brain log output, instruction budget
+  usage, last error, last prompt/response, and token usage totals.
 
 ## 6. Security notes
 

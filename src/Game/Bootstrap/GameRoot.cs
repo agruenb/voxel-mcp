@@ -12,6 +12,7 @@ using VoxelKing.Core.Llm;
 using VoxelKing.Core.Navigation;
 using VoxelKing.Core.Npc;
 using VoxelKing.Core.Npc.Perception;
+using VoxelKing.Core.Persistence;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Debug;
@@ -24,6 +25,10 @@ using VoxelKing.Game.World;
 public partial class GameRoot : Node
 {
     private FileLogSink? _fileLogSink;
+    private float _autosaveTimer;
+
+    public ISaveManager SaveManager { get; private set; } = null!;
+    public string CurrentSaveDirectory { get; private set; } = string.Empty;
 
     public IGameConfigProvider ConfigProvider { get; private set; } = null!;
     public ILoggerFactory LoggerFactory { get; private set; } = null!;
@@ -46,6 +51,7 @@ public partial class GameRoot : Node
     public DebugPathRenderer DebugPathRenderer { get; private set; } = null!;
     public DebugConsole DebugConsole { get; private set; } = null!;
     public DebugBrainConsole DebugBrainConsole { get; private set; } = null!;
+    public NpcInspectorOverlay NpcInspectorOverlay { get; private set; } = null!;
     public PlayerEntity? PlayerEntity { get; private set; }
     public HotbarUI? HotbarUI { get; private set; }
     public ChestUI? ChestUI { get; private set; }
@@ -169,6 +175,47 @@ public partial class GameRoot : Node
             config.Llm,
             loggerFactory.CreateLogger<BrainCompiler>());
 
+        SaveManager = new SaveManager(loggerFactory.CreateLogger<SaveManager>());
+        string savesBase = ProjectSettings.GlobalizePath(config.Save.SavesDirectory);
+        CurrentSaveDirectory = Path.Combine(savesBase, config.Save.WorldName);
+
+        bool hasSave = config.Save.Enabled && SaveManager.HasSave(CurrentSaveDirectory);
+        if (hasSave)
+        {
+            try
+            {
+                var worldData = SaveManager.LoadWorldMetadata(CurrentSaveDirectory);
+                if (worldData != null)
+                {
+                    SaveManager.RestoreNamedPlaces(NamedPlaces, worldData.NamedPlaces);
+                    SaveManager.RestoreContainers(ContainerManager, worldData.Containers);
+                    Logger.LogInfo($"Restored {worldData.Containers.Count} containers and {worldData.NamedPlaces.Count} named places from save.");
+                }
+
+                var modifiedChunks = SaveManager.LoadModifiedChunks(CurrentSaveDirectory, BlockRegistry.IsIndexed);
+                foreach (var chunk in modifiedChunks)
+                {
+                    VoxelWorld.AddOrUpdateChunk(chunk);
+                }
+                Logger.LogInfo($"Loaded {modifiedChunks.Count} modified chunks from save.");
+
+                var npcData = SaveManager.LoadNpcs(CurrentSaveDirectory);
+                if (npcData != null && npcData.Npcs.Count > 0)
+                {
+                    foreach (var npcDto in npcData.Npcs)
+                    {
+                        var npc = SaveManager.CreateNpcState(npcDto, config.BrainLimits);
+                        NpcManager.RestoreNpc(npc, npcDto.BrainSource);
+                    }
+                    Logger.LogInfo($"Restored {npcData.Npcs.Count} NPCs from save.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Error loading save from '{CurrentSaveDirectory}': {ex.Message}");
+            }
+        }
+
         ChunkStreamer = GetNodeOrNull<ChunkStreamer>("ChunkStreamer") ?? new ChunkStreamer();
         if (ChunkStreamer.GetParent() == null)
         {
@@ -194,7 +241,37 @@ public partial class GameRoot : Node
             player.ChestUI = ChestUI;
 
             player.ApplyConfig(config.Player);
-            player.SpawnOnSurface(TerrainGenerator, 0, 0, VoxelWorld);
+
+            bool restoredPlayer = false;
+            if (hasSave)
+            {
+                try
+                {
+                    var playerData = SaveManager.LoadPlayer(CurrentSaveDirectory);
+                    if (playerData != null)
+                    {
+                        player.GlobalPosition = new Vector3(playerData.Position.X, playerData.Position.Y, playerData.Position.Z);
+                        player.SetLookRotation(playerData.Yaw, playerData.Pitch);
+                        player.IsFlying = playerData.IsFlying;
+                        player.SelectedHotbarSlot = playerData.SelectedHotbarSlot;
+                        InventorySlotDto.PopulateInventory(player.Inventory, playerData.Inventory);
+                        HotbarUI?.UpdateHotbarVisuals();
+                        restoredPlayer = true;
+                        Logger.LogInfo($"Restored player at {playerData.Position} from save.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"Error loading player save: {ex.Message}");
+                }
+            }
+
+            if (!restoredPlayer)
+            {
+                player.SpawnOnSurface(TerrainGenerator, 0, 0, VoxelWorld);
+                Logger.LogInfo($"Player initialized and spawned at {player.GlobalPosition}");
+            }
+
             ChunkStreamer.FocusNode = player;
 
             PlayerEntity = new PlayerEntity(
@@ -205,8 +282,6 @@ public partial class GameRoot : Node
             );
             EntityRegistry.Register(PlayerEntity);
             player.PlayerEntity = PlayerEntity;
-
-            Logger.LogInfo($"Player initialized and spawned at {player.GlobalPosition}");
         }
         else
         {
@@ -291,6 +366,21 @@ public partial class GameRoot : Node
             LuaRuntime = LuaRuntime
         };
         AddChild(DebugBrainConsole);
+
+        NpcInspectorOverlay = new NpcInspectorOverlay
+        {
+            Name = "NpcInspectorOverlay",
+            NpcManager = NpcManager,
+            Player = player,
+            BrainCompiler = BrainCompiler,
+            LlmQueue = LlmQueue,
+            PathRenderer = DebugPathRenderer
+        };
+        AddChild(NpcInspectorOverlay);
+        if (player != null)
+        {
+            player.NpcInspectorOverlay = NpcInspectorOverlay;
+        }
 
         GD.Print("started");
         Logger.LogInfo("GameRoot initialized successfully");
@@ -383,10 +473,150 @@ public partial class GameRoot : Node
     public override void _Process(double delta)
     {
         Dispatcher.Drain(TimeSpan.FromMilliseconds(4));
+
+        if (ConfigProvider?.Config?.Save != null && ConfigProvider.Config.Save.Enabled && ConfigProvider.Config.Save.AutosaveIntervalSeconds > 0)
+        {
+            _autosaveTimer += (float)delta;
+            if (_autosaveTimer >= ConfigProvider.Config.Save.AutosaveIntervalSeconds)
+            {
+                _autosaveTimer = 0f;
+                SaveGame();
+            }
+        }
+    }
+
+    public void SaveGame(string? worldName = null)
+    {
+        if (SaveManager == null) return;
+
+        string targetDir = string.IsNullOrWhiteSpace(worldName)
+            ? CurrentSaveDirectory
+            : Path.Combine(ProjectSettings.GlobalizePath(ConfigProvider.Config.Save.SavesDirectory), worldName);
+
+        var player = GetNodeOrNull<PlayerController>("Player");
+        PlayerSaveData? playerData = null;
+        if (player != null)
+        {
+            var playerPos = player.IsInsideTree()
+                ? new Vec3(player.GlobalPosition.X, player.GlobalPosition.Y, player.GlobalPosition.Z)
+                : (PlayerEntity?.Position ?? new Vec3(player.Position.X, player.Position.Y, player.Position.Z));
+
+            playerData = new PlayerSaveData
+            {
+                Version = 1,
+                Position = playerPos,
+                Yaw = player.Yaw,
+                Pitch = player.Pitch,
+                IsFlying = player.IsFlying,
+                SelectedHotbarSlot = player.SelectedHotbarSlot,
+                Inventory = InventorySlotDto.FromInventory(player.Inventory)
+            };
+        }
+
+        var worldData = new WorldSaveData
+        {
+            Version = 1,
+            WorldName = worldName ?? ConfigProvider.Config.Save.WorldName,
+            Seed = ConfigProvider.Config.World.Seed,
+            WorldTime = 0.0,
+            SavedAtUtc = DateTime.UtcNow,
+            NamedPlaces = SaveManager.CreateNamedPlacesDto(NamedPlaces),
+            Containers = SaveManager.CreateContainerDtos(ContainerManager)
+        };
+
+        SaveManager.SaveWorld(
+            targetDir,
+            worldData,
+            VoxelWorld.ModifiedChunks,
+            NpcManager.ActiveNpcs,
+            playerData);
+
+        Logger.LogInfo($"Saved game to '{targetDir}'");
+    }
+
+    public bool LoadGame(string? worldName = null)
+    {
+        if (SaveManager == null) return false;
+
+        string targetDir = string.IsNullOrWhiteSpace(worldName)
+            ? CurrentSaveDirectory
+            : Path.Combine(ProjectSettings.GlobalizePath(ConfigProvider.Config.Save.SavesDirectory), worldName);
+
+        if (!SaveManager.HasSave(targetDir))
+        {
+            Logger.LogWarning($"Cannot load world '{targetDir}': save not found.");
+            return false;
+        }
+
+        try
+        {
+            var worldData = SaveManager.LoadWorldMetadata(targetDir);
+            if (worldData != null)
+            {
+                SaveManager.RestoreNamedPlaces(NamedPlaces, worldData.NamedPlaces);
+                SaveManager.RestoreContainers(ContainerManager, worldData.Containers);
+            }
+
+            var modifiedChunks = SaveManager.LoadModifiedChunks(targetDir, BlockRegistry.IsIndexed);
+            foreach (var chunk in modifiedChunks)
+            {
+                VoxelWorld.AddOrUpdateChunk(chunk);
+            }
+
+            NpcManager.DespawnAllNpcs();
+            var npcData = SaveManager.LoadNpcs(targetDir);
+            if (npcData != null)
+            {
+                foreach (var npcDto in npcData.Npcs)
+                {
+                    var npc = SaveManager.CreateNpcState(npcDto, ConfigProvider.Config.BrainLimits);
+                    NpcManager.RestoreNpc(npc, npcDto.BrainSource);
+                }
+            }
+
+            var player = GetNodeOrNull<PlayerController>("Player");
+            if (player != null)
+            {
+                var playerData = SaveManager.LoadPlayer(targetDir);
+                if (playerData != null)
+                {
+                    player.GlobalPosition = new Vector3(playerData.Position.X, playerData.Position.Y, playerData.Position.Z);
+                    player.SetLookRotation(playerData.Yaw, playerData.Pitch);
+                    player.IsFlying = playerData.IsFlying;
+                    player.SelectedHotbarSlot = playerData.SelectedHotbarSlot;
+                    InventorySlotDto.PopulateInventory(player.Inventory, playerData.Inventory);
+                    HotbarUI?.UpdateHotbarVisuals();
+                    if (PlayerEntity != null)
+                    {
+                        PlayerEntity.Position = playerData.Position;
+                    }
+                }
+            }
+
+            Logger.LogInfo($"Loaded game from '{targetDir}' successfully.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"Failed to load game from '{targetDir}': {ex.Message}");
+            return false;
+        }
     }
 
     public override void _ExitTree()
     {
+        if (ConfigProvider?.Config?.Save != null && ConfigProvider.Config.Save.Enabled)
+        {
+            try
+            {
+                SaveGame();
+            }
+            catch (Exception ex)
+            {
+                GD.PushWarning($"Failed to save game on exit: {ex.Message}");
+            }
+        }
+
         LlmQueue?.Dispose();
         NpcManager?.Dispose();
         _fileLogSink?.Dispose();

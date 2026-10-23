@@ -41,7 +41,6 @@ public class ConfigTests
         Assert.Equal(16384, config.BrainLimits.MaxMemoryTotalBytes);
 
         Assert.Equal("gemini-3.8-flash", config.Llm.Model);
-        Assert.Equal(0.3f, config.Llm.Temperature);
         Assert.Equal(8192, config.Llm.MaxOutputTokens);
         Assert.Equal(30, config.Llm.TimeoutSeconds);
         Assert.Equal(2, config.Llm.MaxRetries);
@@ -80,7 +79,7 @@ public class ConfigTests
           },
           "llm": {
             "model": "gemini-1.5-pro",
-            "temperature": 0.7
+            "maxOutputTokens": 4096
           }
         }
         """;
@@ -92,7 +91,7 @@ public class ConfigTests
         Assert.Equal(32, config.World.ChunkSize); // unmentioned property keeps default
 
         Assert.Equal("gemini-1.5-pro", config.Llm.Model);
-        Assert.Equal(0.7f, config.Llm.Temperature);
+        Assert.Equal(4096, config.Llm.MaxOutputTokens);
         Assert.Equal(30, config.Llm.TimeoutSeconds); // unmentioned property keeps default
     }
 
@@ -305,7 +304,7 @@ public class ConfigTests
         var original = new GameConfig
         {
             World = new WorldConfig { Seed = 42, LoadedChunkRadius = 10 },
-            Llm = new LlmConfig { Model = "gemini-test", Temperature = 0.5f }
+            Llm = new LlmConfig { Model = "gemini-test", MaxOutputTokens = 4096 }
         };
 
         string json = GameConfigLoader.ToJson(original);
@@ -314,7 +313,7 @@ public class ConfigTests
         Assert.Equal(original.World.Seed, restored.World.Seed);
         Assert.Equal(original.World.LoadedChunkRadius, restored.World.LoadedChunkRadius);
         Assert.Equal(original.Llm.Model, restored.Llm.Model);
-        Assert.Equal(original.Llm.Temperature, restored.Llm.Temperature);
+        Assert.Equal(original.Llm.MaxOutputTokens, restored.Llm.MaxOutputTokens);
     }
 
     [Fact]

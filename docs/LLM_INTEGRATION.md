@@ -16,7 +16,7 @@
 
 Endpoint: `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
 Header: `x-goog-api-key: <key>`. Model name and generation parameters come from config
-(`llm.model`, `llm.temperature` ≈ 0.3, `llm.maxOutputTokens`, `llm.timeoutSeconds`).
+(`llm.model`, `llm.maxOutputTokens`, `llm.timeoutSeconds`).
 
 ### 2.1 System instruction (built by `PromptBuilder`, mostly static → cache-friendly)
 

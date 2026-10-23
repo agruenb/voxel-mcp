@@ -61,12 +61,16 @@ public partial class TestDialogueRunner : Node
                 AssertTrue(_player != null, "PlayerController not found.");
                 AssertTrue(_dialogueUI != null, "DialogueUI not found.");
 
-                // Get or spawn test NPC Bob near the player
+                _player!.GlobalPosition = new Vector3(0f, 68f, 0f);
+                var spawnPos = new Vec3(2f, 68f, 0f);
                 _bob = _gameRoot.NpcManager.ActiveNpcs.FirstOrDefault(n => n.Name == "Bob")!;
                 if (_bob == null)
                 {
-                    var spawnPos = new Vec3(_player!.GlobalPosition.X + 2.0f, _player.GlobalPosition.Y, _player.GlobalPosition.Z);
                     _bob = _gameRoot.NpcManager.SpawnNpc("Bob", spawnPos, profile: "helpful builder", home: spawnPos);
+                }
+                else
+                {
+                    _bob.Position = spawnPos;
                 }
 
                 // Aim player directly towards Bob at his spawned position

@@ -65,7 +65,8 @@ public sealed class GeminiClient : ILlmClient
                 return LlmResponse.Failure(error, rawText: responseBody);
             }
 
-            return ParseSuccessResponse(responseBody);
+            int maxOutputTokens = request.MaxOutputTokens ?? _config.MaxOutputTokens;
+            return ParseSuccessResponse(responseBody, maxOutputTokens);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -146,14 +147,13 @@ public sealed class GeminiClient : ILlmClient
         {
             ["responseMimeType"] = "application/json",
             ["responseSchema"] = responseSchema,
-            ["temperature"] = request.Temperature ?? _config.Temperature,
             ["maxOutputTokens"] = request.MaxOutputTokens ?? _config.MaxOutputTokens
         };
 
         return root.ToJsonString();
     }
 
-    private static LlmResponse ParseSuccessResponse(string json)
+    private static LlmResponse ParseSuccessResponse(string json, int maxOutputTokens)
     {
         try
         {
@@ -175,7 +175,7 @@ public sealed class GeminiClient : ILlmClient
             {
                 if (string.Equals(finishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
                 {
-                    return LlmResponse.Failure(LlmError.InvalidJson("Generation reached maxOutputTokens limit before completing."), rawText: json);
+                    return LlmResponse.Failure(LlmError.InvalidJson($"Generation reached maxOutputTokens limit ({maxOutputTokens} tokens) before completing."), rawText: json);
                 }
                 return LlmResponse.Failure(LlmError.Unknown("No content parts returned in candidate."), rawText: json);
             }
@@ -203,7 +203,7 @@ public sealed class GeminiClient : ILlmClient
                 string effectiveError = parseError ?? "Failed to parse structured JSON response.";
                 if (string.Equals(finishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
                 {
-                    effectiveError = $"Generation was truncated because it reached the maximum output token limit ({usageStruct.OutputTokens} tokens). Please provide a more concise script. {effectiveError}";
+                    effectiveError = $"Generation was truncated because it reached the maximum output token limit ({maxOutputTokens} tokens). Please provide a more concise script. {effectiveError}";
                 }
                 return LlmResponse.Failure(LlmError.InvalidJson(effectiveError), rawText: rawText, usage: usageStruct);
             }

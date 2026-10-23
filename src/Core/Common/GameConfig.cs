@@ -11,6 +11,7 @@ public sealed record GameConfig : IGameConfig
     public LlmConfig Llm { get; set; } = new();
     public DebugConfig Debug { get; set; } = new();
     public PlayerConfig Player { get; set; } = new();
+    public SaveConfig Save { get; set; } = new();
 }
 
 /// <summary>
@@ -92,7 +93,6 @@ public sealed record BrainLimitsConfig
 public sealed record LlmConfig
 {
     public string Model { get; set; } = "gemini-3.8-flash";
-    public float Temperature { get; set; } = 0.3f;
     public int MaxOutputTokens { get; set; } = 8192;
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetries { get; set; } = 2;
@@ -112,4 +112,15 @@ public sealed record DebugConfig
     public bool LogLlmRequests { get; set; } = true;
     public string LogLevel { get; set; } = "Info";
     public string LlmLogDirectory { get; set; } = "user://logs/llm";
+}
+
+/// <summary>
+/// World persistence and autosave interval configuration.
+/// </summary>
+public sealed record SaveConfig
+{
+    public bool Enabled { get; set; } = true;
+    public string WorldName { get; set; } = "default";
+    public float AutosaveIntervalSeconds { get; set; } = 60.0f;
+    public string SavesDirectory { get; set; } = "user://saves";
 }

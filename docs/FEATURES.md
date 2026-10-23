@@ -93,8 +93,8 @@ flowchart LR
 | F-404 | BrainCompiler (generate → validate → repair) | M4 | F-401, F-403, F-307 | Done |
 | F-405 | Dialogue UI & NPC conversation states | M4 | F-108, F-404, F-209 | Done |
 | F-406 | Spawn multiple NPCs with profiles | M4 | F-208 | Done |
-| F-501 | Save / load | M5 | F-107, F-303 | Todo |
-| F-502 | NPC inspector overlay | M5 | F-306 | Todo |
+| F-501 | Save / load | M5 | F-107, F-303 | Done |
+| F-502 | NPC inspector overlay | M5 | F-306 | Done |
 | F-503 | Day/night cycle & world time | M5 | F-104 | Todo |
 
 ---

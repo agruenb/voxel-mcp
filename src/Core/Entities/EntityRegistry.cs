@@ -40,6 +40,25 @@ public sealed class EntityRegistry
     }
 
     /// <summary>
+    /// Ensures that the internal ID counter is at least the specified minimum value.
+    /// </summary>
+    public void EnsureNextIdAtLeast(int minId)
+    {
+        while (true)
+        {
+            int current = Volatile.Read(ref _nextId);
+            if (current >= minId)
+            {
+                break;
+            }
+            if (Interlocked.CompareExchange(ref _nextId, minId, current) == current)
+            {
+                break;
+            }
+        }
+    }
+
+    /// <summary>
     /// Generates a monotonically increasing, unique entity ID starting from 1.
     /// </summary>
     public EntityId GenerateNextId()

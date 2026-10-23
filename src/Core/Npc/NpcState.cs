@@ -58,6 +58,21 @@ public sealed class NpcState : IEntity
     /// </summary>
     public double TaskStartTime { get; set; }
 
+    /// <summary>
+    /// The last full prompt sent to the LLM for this NPC, or null.
+    /// </summary>
+    public string? LastPrompt { get; set; }
+
+    /// <summary>
+    /// The last raw response text received from the LLM for this NPC, or null.
+    /// </summary>
+    public string? LastResponse { get; set; }
+
+    /// <summary>
+    /// Cumulative token consumption metrics reported by LLM calls for this NPC.
+    /// </summary>
+    public LlmUsage TotalTokenUsage { get; set; }
+
     private NpcConversationState _conversationState = NpcConversationState.None;
     private readonly List<ConversationTurn> _conversationHistory = new();
 

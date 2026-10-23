@@ -314,4 +314,46 @@ public class GeminiClientTests
         Assert.Equal(LlmErrorKind.InvalidJson, response.Error.Kind);
         Assert.Contains("maxOutputTokens limit", response.Error.Message);
     }
+
+    [Fact]
+    public async Task GenerateAsync_MaxTokensTruncation_WithFewerCandidatesTokens_ReportsConfiguredMaxLimit()
+    {
+        const string truncatedFixture = @"
+        {
+          ""candidates"": [
+            {
+              ""content"": {
+                ""parts"": [
+                  {
+                    ""text"": ""{\n  \""script\"": \""function main()\\n  npc.say('hel""
+                  }
+                ],
+                ""role"": ""model""
+              },
+              ""finishReason"": ""MAX_TOKENS"",
+              ""index"": 0
+            }
+          ],
+          ""usageMetadata"": {
+            ""promptTokenCount"": 2308,
+            ""candidatesTokenCount"": 72,
+            ""totalTokenCount"": 4342
+          }
+        }";
+
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, truncatedFixture);
+        using var httpClient = new HttpClient(handler);
+        var config = new LlmConfig { ApiKey = "test-key", MaxOutputTokens = 8192 };
+        var client = new GeminiClient(httpClient, config);
+
+        var request = new LlmRequest("sys", "user");
+        var response = await client.GenerateAsync(request);
+
+        Assert.False(response.IsSuccess);
+        Assert.NotNull(response.Error);
+        Assert.Equal(LlmErrorKind.InvalidJson, response.Error.Kind);
+        Assert.Contains("maximum output token limit (8192 tokens)", response.Error.Message);
+        Assert.DoesNotContain("72 tokens", response.Error.Message);
+        Assert.Equal(72, response.Usage.OutputTokens);
+    }
 }

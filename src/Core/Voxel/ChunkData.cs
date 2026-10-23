@@ -17,6 +17,7 @@ public sealed class ChunkData
 
     public Vec3i ChunkCoord { get; }
     public bool IsDirty { get; set; }
+    public bool IsModified { get; set; }
     public uint Version { get; private set; }
     public ChunkBlockIndex BlockIndex { get; }
 
@@ -28,10 +29,11 @@ public sealed class ChunkData
         _blocks = new ushort[Volume];
         BlockIndex = new ChunkBlockIndex(isIndexed);
         IsDirty = true;
+        IsModified = false;
         Version = 1;
     }
 
-    public ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version = 1, bool isDirty = false, Func<ushort, bool>? isIndexed = null)
+    public ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version = 1, bool isDirty = false, Func<ushort, bool>? isIndexed = null, bool isModified = false)
     {
         ArgumentNullException.ThrowIfNull(blocks);
         if (blocks.Length != Volume)
@@ -43,16 +45,18 @@ public sealed class ChunkData
         _blocks = (ushort[])blocks.Clone();
         Version = version;
         IsDirty = isDirty;
+        IsModified = isModified;
         BlockIndex = new ChunkBlockIndex(isIndexed);
         BlockIndex.Rebuild(_blocks, isIndexed);
     }
 
-    private ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version, bool isDirty, ChunkBlockIndex blockIndex)
+    private ChunkData(Vec3i chunkCoord, ushort[] blocks, uint version, bool isDirty, bool isModified, ChunkBlockIndex blockIndex)
     {
         ChunkCoord = chunkCoord;
         _blocks = (ushort[])blocks.Clone();
         Version = version;
         IsDirty = isDirty;
+        IsModified = isModified;
         BlockIndex = blockIndex.Clone();
     }
 
@@ -99,6 +103,7 @@ public sealed class ChunkData
             _blocks[index] = blockId;
             BlockIndex.OnBlockSet(new Vec3i(x, y, z), oldBlock, blockId);
             IsDirty = true;
+            IsModified = true;
             Version++;
         }
     }
@@ -126,5 +131,5 @@ public sealed class ChunkData
     /// <summary>
     /// Creates a complete snapshot of this chunk.
     /// </summary>
-    public ChunkData Clone() => new(ChunkCoord, _blocks, Version, IsDirty, BlockIndex);
+    public ChunkData Clone() => new(ChunkCoord, _blocks, Version, IsDirty, IsModified, BlockIndex);
 }

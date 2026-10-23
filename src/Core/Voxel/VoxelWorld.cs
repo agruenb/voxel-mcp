@@ -17,6 +17,7 @@ public sealed class VoxelWorld : IVoxelWorld
     public IBlockRegistry BlockRegistry { get; }
     public int ChunkCount => _chunks.Count;
     public IEnumerable<ChunkData> Chunks => _chunks.Values;
+    public IEnumerable<ChunkData> ModifiedChunks => _chunks.Values.Where(c => c.IsModified);
 
     public VoxelWorld(IBlockRegistry blockRegistry, IEventBus? eventBus = null)
     {

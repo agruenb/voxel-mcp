@@ -31,8 +31,7 @@
   },
   "llm": {
     "model": "gemini-3.8-flash",
-    "temperature": 0.3,
-    "maxOutputTokens": 2048,
+    "maxOutputTokens": 8192,
     "timeoutSeconds": 120,
     "maxRetries": 2,
     "maxConcurrentRequests": 2,
@@ -60,5 +59,11 @@
     "bodyHeight": 1.8,
     "enableStepAssist": true,
     "enableStepSmoothing": true
+  },
+  "save": {
+    "enabled": true,
+    "worldName": "default",
+    "autosaveIntervalSeconds": 60.0,
+    "savesDirectory": "user://saves"
   }
 }

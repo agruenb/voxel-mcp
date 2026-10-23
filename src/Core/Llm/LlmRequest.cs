@@ -25,11 +25,6 @@ public sealed record LlmRequest
     public string? Model { get; init; }
 
     /// <summary>
-    /// Optional generation temperature override. If null, uses client configured default.
-    /// </summary>
-    public float? Temperature { get; init; }
-
-    /// <summary>
     /// Optional max output tokens override. If null, uses client configured default.
     /// </summary>
     public int? MaxOutputTokens { get; init; }
@@ -38,13 +33,11 @@ public sealed record LlmRequest
         string systemInstruction,
         IReadOnlyList<LlmMessage> messages,
         string? model = null,
-        float? temperature = null,
         int? maxOutputTokens = null)
     {
         SystemInstruction = systemInstruction ?? throw new ArgumentNullException(nameof(systemInstruction));
         Messages = messages ?? throw new ArgumentNullException(nameof(messages));
         Model = model;
-        Temperature = temperature;
         MaxOutputTokens = maxOutputTokens;
     }
 
@@ -55,13 +48,11 @@ public sealed record LlmRequest
         string systemInstruction,
         string userPrompt,
         string? model = null,
-        float? temperature = null,
         int? maxOutputTokens = null)
         : this(
             systemInstruction,
             new[] { LlmMessage.User(userPrompt) },
             model,
-            temperature,
             maxOutputTokens)
     {
     }
@@ -69,8 +60,8 @@ public sealed record LlmRequest
     /// <summary>
     /// Convenience constructor taking a pre-built <see cref="BuiltPrompt"/> from <see cref="IPromptBuilder"/>.
     /// </summary>
-    public LlmRequest(BuiltPrompt prompt, string? model = null, float? temperature = null, int? maxOutputTokens = null)
-        : this(prompt.SystemInstruction, prompt.UserContent, model, temperature, maxOutputTokens)
+    public LlmRequest(BuiltPrompt prompt, string? model = null, int? maxOutputTokens = null)
+        : this(prompt.SystemInstruction, prompt.UserContent, model, maxOutputTokens)
     {
     }
 }

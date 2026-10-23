@@ -42,6 +42,31 @@ public interface IBrainHost : ITaskLayer, IDisposable
     void AddLog(string message);
 
     /// <summary>
+    /// Number of Lua instructions executed during the last brain tick or event handler invocation.
+    /// </summary>
+    int LastTickInstructions { get; }
+
+    /// <summary>
+    /// Cumulative count of Lua instructions executed since this brain was loaded.
+    /// </summary>
+    long TotalInstructionsExecuted { get; }
+
+    /// <summary>
+    /// Maximum allowed instructions per tick.
+    /// </summary>
+    int MaxInstructionsPerTick { get; }
+
+    /// <summary>
+    /// Current count of consecutive forced yields before busy-loop termination.
+    /// </summary>
+    int ConsecutiveForcedYields { get; }
+
+    /// <summary>
+    /// Maximum allowed consecutive forced yields.
+    /// </summary>
+    int MaxConsecutiveForcedYields { get; }
+
+    /// <summary>
     /// Loads and initializes a new Lua brain script for the NPC, replacing any existing script.
     /// Validates script size and runs top-level code within the top-level instruction budget.
     /// </summary>
