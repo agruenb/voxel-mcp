@@ -1,6 +1,8 @@
 namespace VoxelKing.Game.UI;
 
+using System;
 using Godot;
+using VoxelKing.Core.Common;
 using VoxelKing.Core.Entities;
 using VoxelKing.Game.Player;
 
@@ -16,13 +18,16 @@ public partial class HotbarUI : CanvasLayer
     private ProgressBar _breakProgressBar = null!;
     private Label _notificationLabel = null!;
     private double _notificationTimer = 0;
+    private IDisposable? _itemPickedUpSub;
 
-    public void BindPlayer(PlayerController player)
+    public void BindPlayer(PlayerController player, IEventBus? eventBus = null)
     {
         if (_player != null)
         {
             _player.Inventory.Changed -= OnInventoryChanged;
         }
+        _itemPickedUpSub?.Dispose();
+        _itemPickedUpSub = null;
 
         _player = player;
 
@@ -30,6 +35,19 @@ public partial class HotbarUI : CanvasLayer
         {
             _player.Inventory.Changed += OnInventoryChanged;
             UpdateHotbarVisuals();
+        }
+
+        if (eventBus != null)
+        {
+            _itemPickedUpSub = eventBus.Subscribe<ItemPickedUp>(OnItemPickedUp);
+        }
+    }
+
+    private void OnItemPickedUp(ItemPickedUp e)
+    {
+        if (_player != null && _player.PlayerEntity != null && e.PickerId == _player.PlayerEntity.Id)
+        {
+            ShowNotification($"Picked up {FormatItemName(e.ItemName)} x{e.Count}");
         }
     }
 
@@ -44,6 +62,9 @@ public partial class HotbarUI : CanvasLayer
 
     public override void _ExitTree()
     {
+        _itemPickedUpSub?.Dispose();
+        _itemPickedUpSub = null;
+
         if (_player != null)
         {
             _player.Inventory.Changed -= OnInventoryChanged;

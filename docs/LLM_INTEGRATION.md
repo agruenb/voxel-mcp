@@ -98,8 +98,7 @@ error list and asks for a corrected full JSON response. Max retries configurable
 
 `MockLlmClient` maps keywords in the instruction to example brains in `brains/examples/`
 (e.g. "wood|log" → `gather_logs.lua`, "follow" → `follow_player.lua`). Used:
-- when no API key is configured (automatic fallback, with a HUD warning),
-- in all unit/integration tests,
+- in all automated unit/integration tests,
 - to test the validator with deliberately broken scripts (`brains/examples/invalid/*.lua`).
 
 ## 7. Prompt quality loop (development process)

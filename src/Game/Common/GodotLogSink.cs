@@ -23,9 +23,11 @@ public sealed class GodotLogSink : ILogSink
 		switch (level)
 		{
 			case LogLevel.Error:
+				GD.PrintErr(formatted);
 				GD.PushError(formatted);
 				break;
 			case LogLevel.Warning:
+				GD.PrintErr(formatted);
 				GD.PushWarning(formatted);
 				break;
 			case LogLevel.Info:

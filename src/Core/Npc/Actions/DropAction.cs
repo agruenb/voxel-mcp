@@ -54,14 +54,17 @@ public sealed class DropAction : ActionBase
             return;
         }
 
-        var dropPos = Npc.Position + new Vec3(0f, 0.5f, 0f);
+        var fwd = Npc.GetFacingDirection();
+        var dropPos = Npc.Position + new Vec3(0f, 0.5f, 0f) + (fwd * 0.4f);
+        var dropVel = (fwd * 1.5f) + new Vec3(0f, 1.0f, 0f);
+
         if (NpcManager != null)
         {
-            NpcManager.SpawnItem(new ItemStack(ItemId, Count), dropPos);
+            NpcManager.SpawnItem(new ItemStack(ItemId, Count), dropPos, dropVel, pickupCooldown: 1.0f);
         }
         else
         {
-            var item = new ItemEntity(EntityRegistry.GenerateNextId(), new ItemStack(ItemId, Count), dropPos);
+            var item = new ItemEntity(EntityRegistry.GenerateNextId(), new ItemStack(ItemId, Count), dropPos, dropVel, pickupCooldown: 1.0f);
             EntityRegistry.Register(item);
         }
 

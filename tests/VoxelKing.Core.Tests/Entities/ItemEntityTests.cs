@@ -106,4 +106,45 @@ public class ItemEntityTests
         Assert.True(item.Position.Y >= 1.0f);
         Assert.Equal(0f, item.Velocity.Y);
     }
+
+    [Fact]
+    public void TickPhysics_RestingOnFloor_RemainsStableAtFloorLevel()
+    {
+        var blocks = BlockRegistry.CreateDefault();
+        var world = new VoxelWorld(blocks);
+        world.SetBlock(0, 0, 0, blocks.GetId("stone"));
+
+        // Dropped item already resting on floor at Y = 1.0
+        var item = new ItemEntity(new EntityId(1), new ItemStack("dirt", 1), new Vec3(0.5f, 1.0f, 0.5f), Vec3.Zero, 0f);
+
+        // Multiple physics ticks
+        for (int i = 0; i < 20; i++)
+        {
+            item.TickPhysics(1f / 60f, world);
+        }
+
+        // Remains exactly at 1.0f on the floor
+        Assert.Equal(1.0f, item.Position.Y);
+        Assert.Equal(Vec3.Zero, item.Velocity);
+    }
+
+    [Fact]
+    public void TickPhysics_CollidesWithWall_StopsHorizontalVelocity()
+    {
+        var blocks = BlockRegistry.CreateDefault();
+        var world = new VoxelWorld(blocks);
+        // Floor at (0, 0, 0)
+        world.SetBlock(0, 0, 0, blocks.GetId("stone"));
+        // Wall at (1, 1, 0)
+        world.SetBlock(1, 1, 0, blocks.GetId("stone"));
+
+        // Item at (0.8, 1.5, 0.5) moving right towards wall with positive X velocity
+        var item = new ItemEntity(new EntityId(1), new ItemStack("dirt", 1), new Vec3(0.8f, 1.5f, 0.5f), new Vec3(5.0f, 0f, 0f), 0f);
+
+        item.TickPhysics(0.1f, world);
+
+        // Horizontal velocity should be stopped by the wall, item falls downward instead of popping to Y = 2
+        Assert.Equal(0f, item.Velocity.X);
+        Assert.True(item.Position.X < 1.0f);
+    }
 }

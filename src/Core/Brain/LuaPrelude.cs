@@ -73,6 +73,8 @@ function vec(x, y, z)
     return create_pos(x, y, z)
 end
 
+vec3 = vec
+
 function dist(a, b)
     if not a or type(a) ~= 'table' or not a.x or not a.y or not a.z or
        not b or type(b) ~= 'table' or not b.x or not b.y or not b.z then

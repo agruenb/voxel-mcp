@@ -33,7 +33,7 @@
     "model": "gemini-3.8-flash",
     "temperature": 0.3,
     "maxOutputTokens": 2048,
-    "timeoutSeconds": 30,
+    "timeoutSeconds": 120,
     "maxRetries": 2,
     "maxConcurrentRequests": 2,
     "requestsPerMinute": 60,

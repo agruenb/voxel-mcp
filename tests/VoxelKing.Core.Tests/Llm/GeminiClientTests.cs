@@ -198,6 +198,23 @@ public class GeminiClientTests
     }
 
     [Fact]
+    public async Task GenerateAsync_NoApiKey_ReturnsInvalidApiKeyFailure()
+    {
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, "{}");
+        using var httpClient = new HttpClient(handler);
+        var config = new LlmConfig { ApiKey = "" };
+        var client = new GeminiClient(httpClient, config);
+
+        var request = new LlmRequest("sys", "user");
+        var response = await client.GenerateAsync(request);
+
+        Assert.False(response.IsSuccess);
+        Assert.NotNull(response.Error);
+        Assert.Equal(LlmErrorKind.InvalidApiKey, response.Error.Kind);
+        Assert.Contains("No Gemini API key configured", response.Error.Message);
+    }
+
+    [Fact]
     public async Task SmokeTest_AgainstLiveGemini_WhenApiKeyAvailable()
     {
         string? apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
@@ -227,5 +244,74 @@ public class GeminiClientTests
         Assert.True(response.IsSuccess, $"Live Gemini call failed: {response.Error?.Message}");
         Assert.NotNull(response.Content);
         Assert.NotEmpty(response.Content.Script);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_MaxTokensTruncation_ReportsTruncationErrorWithUsage()
+    {
+        const string truncatedFixture = @"
+        {
+          ""candidates"": [
+            {
+              ""content"": {
+                ""parts"": [
+                  {
+                    ""text"": ""{\n  \""script\"": \""function main()\\n  npc.say('hel""
+                  }
+                ],
+                ""role"": ""model""
+              },
+              ""finishReason"": ""MAX_TOKENS"",
+              ""index"": 0
+            }
+          ],
+          ""usageMetadata"": {
+            ""promptTokenCount"": 500,
+            ""candidatesTokenCount"": 8192,
+            ""totalTokenCount"": 8692
+          }
+        }";
+
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, truncatedFixture);
+        using var httpClient = new HttpClient(handler);
+        var config = new LlmConfig { ApiKey = "test-key" };
+        var client = new GeminiClient(httpClient, config);
+
+        var request = new LlmRequest("sys", "user");
+        var response = await client.GenerateAsync(request);
+
+        Assert.False(response.IsSuccess);
+        Assert.NotNull(response.Error);
+        Assert.Equal(LlmErrorKind.InvalidJson, response.Error.Kind);
+        Assert.Contains("maximum output token limit (8192 tokens)", response.Error.Message);
+        Assert.Contains("concise", response.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(8192, response.Usage.OutputTokens);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_MaxTokensEmptyContent_ReportsTruncationError()
+    {
+        const string emptyContentMaxTokensFixture = @"
+        {
+          ""candidates"": [
+            {
+              ""finishReason"": ""MAX_TOKENS"",
+              ""index"": 0
+            }
+          ]
+        }";
+
+        var handler = new MockHttpMessageHandler(HttpStatusCode.OK, emptyContentMaxTokensFixture);
+        using var httpClient = new HttpClient(handler);
+        var config = new LlmConfig { ApiKey = "test-key" };
+        var client = new GeminiClient(httpClient, config);
+
+        var request = new LlmRequest("sys", "user");
+        var response = await client.GenerateAsync(request);
+
+        Assert.False(response.IsSuccess);
+        Assert.NotNull(response.Error);
+        Assert.Equal(LlmErrorKind.InvalidJson, response.Error.Kind);
+        Assert.Contains("maxOutputTokens limit", response.Error.Message);
     }
 }

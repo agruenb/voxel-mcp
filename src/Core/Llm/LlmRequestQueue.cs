@@ -197,13 +197,22 @@ public sealed class LlmRequestQueue : ILlmRequestQueue, ILlmClient, IDisposable
                     lastResponse = LlmResponse.Failure(LlmError.Unknown($"Unexpected exception during LLM generation: {ex.Message}", ex));
                 }
 
-                if (lastResponse.IsSuccess)
+                // If the inner client caught the cancellation and returned Cancelled,
+                // check if it was actually attemptTimeoutCts that fired rather than the caller's token
+                if (lastResponse != null && !lastResponse.IsSuccess && lastResponse.Error?.Kind == LlmErrorKind.Cancelled &&
+                    attemptTimeoutCts.IsCancellationRequested && !linkedToken.IsCancellationRequested)
+                {
+                    _logger?.LogWarning($"LLM request for NPC {npcName} timed out after {timeout.TotalSeconds} seconds.");
+                    lastResponse = LlmResponse.Failure(LlmError.Timeout($"Request timed out after {timeout.TotalSeconds} seconds."));
+                }
+
+                if (lastResponse?.IsSuccess == true)
                 {
                     break;
                 }
 
                 // If error is not transient/retryable, do not retry
-                if (lastResponse.Error == null || !lastResponse.Error.IsRetryable || attempt >= maxRetries)
+                if (lastResponse?.Error == null || !lastResponse.Error.IsRetryable || attempt >= maxRetries)
                 {
                     break;
                 }

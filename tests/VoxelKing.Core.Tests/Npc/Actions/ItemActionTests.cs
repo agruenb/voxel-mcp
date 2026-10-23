@@ -162,6 +162,45 @@ public class ItemActionTests
     }
 
     [Fact]
+    public void DropAction_SetsTossVelocityAndPickupCooldown()
+    {
+        var (world, blocks, bus, registry, pathService) = CreateTestEnv();
+        var npc = new NpcState(new EntityId(1), "Dropper", new Vec3(0f, 1.0f, 0f));
+        npc.Inventory.AddItem("dirt", 5, out _);
+        npc.Facing = 0f; // facing -Z
+        registry.Register(npc);
+
+        var action = new DropAction(npc, "dirt", 2, registry);
+        action.Start();
+
+        var item = registry.GetAll<ItemEntity>().Single();
+        Assert.Equal("dirt", item.Stack.ItemId);
+        Assert.Equal(2, item.Stack.Count);
+        Assert.True(item.Velocity.Y > 0f);
+        Assert.True(item.PickupCooldown >= 1.0f);
+    }
+
+    [Fact]
+    public void PickUpAction_SucceedsWhenAutoPickupCollectsItemUponArrival()
+    {
+        var (world, blocks, bus, registry, pathService) = CreateTestEnv();
+        var manager = new NpcManager(registry, voxelWorld: world, eventBus: bus);
+        var npc = new NpcState(new EntityId(1), "Picker", new Vec3(0f, 1.0f, 0f));
+        registry.Register(npc);
+
+        var item = manager.SpawnItem(new ItemStack("dirt", 3), new Vec3(1.0f, 1.0f, 0f), pickupCooldown: 0f);
+
+        var action = new PickUpAction(npc, item.Id, registry, manager, pathService, world, bus);
+        action.Start();
+
+        // Simulate auto-pickup event as manager physics tick would fire
+        bus.Publish(new ItemPickedUp(npc.Id, item.Id, item.Name, 3));
+        action.Tick(0.1f);
+
+        Assert.True(action.Status.IsSucceeded);
+    }
+
+    [Fact]
     public void GiveAction_TransfersItemsToTargetEntity()
     {
         var (world, blocks, bus, registry, pathService) = CreateTestEnv();

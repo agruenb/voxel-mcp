@@ -36,7 +36,7 @@ public sealed class PromptBuilder : IPromptBuilder
         IReadOnlyList<BrainExample>? examples = null,
         PromptBuilderOptions? defaultOptions = null)
     {
-        _registry = registry ?? LuaApiRegistry.Default;
+        _registry = (registry != null && registry.GetAllEntries().Count > 0) ? registry : LuaApiRegistry.Default;
         _defaultOptions = defaultOptions ?? new PromptBuilderOptions();
 
         var selectedExamples = SelectFewShotExamples(examples, _defaultOptions.MaxFewShotExamples);
@@ -259,7 +259,8 @@ public sealed class PromptBuilder : IPromptBuilder
             {
                 script = "function main()\n" +
                          "    local target_pos = npc.pos():offset(1, 0, 0)\n" +
-                         "    if world.get_block(target_pos) ~= \"air\" then\n" +
+                         "    local b = world.block(target_pos)\n" +
+                         "    if b and b ~= \"air\" then\n" +
                          "        local ok, reason = npc.mine(target_pos)\n" +
                          "        if not ok then\n" +
                          "            log(\"Mine failed: \" .. tostring(reason))\n" +
@@ -317,7 +318,8 @@ public sealed class PromptBuilder : IPromptBuilder
                 "-- instruction: Clear the block in front of you and place cobblestone\n" +
                 "function main()\n" +
                 "    local target_pos = npc.pos():offset(1, 0, 0)\n" +
-                "    if world.get_block(target_pos) ~= \"air\" then\n" +
+                "    local b = world.block(target_pos)\n" +
+                "    if b and b ~= \"air\" then\n" +
                 "        local ok, reason = npc.mine(target_pos)\n" +
                 "        if not ok then\n" +
                 "            log(\"Mine failed: \" .. tostring(reason))\n" +

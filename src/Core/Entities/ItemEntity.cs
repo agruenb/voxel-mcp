@@ -76,7 +76,7 @@ public sealed class ItemEntity : IEntity
     }
 
     /// <summary>
-    /// Updates item physics (gravity and landing on solid blocks) and decrements pickup cooldown.
+    /// Updates item physics (gravity, landing on solid blocks, wall collisions) and decrements pickup cooldown.
     /// </summary>
     public void TickPhysics(float dt, IVoxelWorld? world = null, float gravity = 20.0f)
     {
@@ -90,6 +90,7 @@ public sealed class ItemEntity : IEntity
             PickupCooldown = Math.Max(0f, PickupCooldown - dt);
         }
 
+        // Apply gravity to velocity
         Velocity = Velocity with { Y = Velocity.Y - (gravity * dt) };
         Vec3 nextPos = Position + (Velocity * dt);
 
@@ -99,9 +100,22 @@ public sealed class ItemEntity : IEntity
             ushort blockId = world.GetBlock(blockPos);
             if (world.BlockRegistry.TryGetDefinition(blockId, out var def) && def.IsSolid)
             {
-                // Land on top of solid block
-                nextPos = new Vec3(nextPos.X, blockPos.Y + 1.0f, nextPos.Z);
-                Velocity = new Vec3(Velocity.X * 0.8f, 0f, Velocity.Z * 0.8f);
+                // If coming down from above the solid block, land on top of the block
+                if (Position.Y >= blockPos.Y + 1.0f)
+                {
+                    nextPos = new Vec3(nextPos.X, blockPos.Y + 1.0f, nextPos.Z);
+                    Velocity = new Vec3(Velocity.X * 0.7f, 0f, Velocity.Z * 0.7f);
+                    if (MathF.Abs(Velocity.X) < 0.05f && MathF.Abs(Velocity.Z) < 0.05f)
+                    {
+                        Velocity = Vec3.Zero;
+                    }
+                }
+                else
+                {
+                    // Collided with a wall or ceiling obstacle horizontally: stop horizontal velocity
+                    nextPos = new Vec3(Position.X, Math.Max(blockPos.Y + 1.0f, nextPos.Y), Position.Z);
+                    Velocity = new Vec3(0f, Velocity.Y <= 0f ? 0f : -gravity * dt, 0f);
+                }
             }
         }
 

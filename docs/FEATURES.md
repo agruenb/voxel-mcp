@@ -281,8 +281,8 @@ flowchart LR
 
 ### F-402 LLM client abstraction, Gemini & mock clients
 - `ILlmClient.GenerateAsync(LlmRequest, CancellationToken)`; `GeminiClient` (REST, structured output with
-  `responseSchema`, usage parsing, error mapping); `MockLlmClient` (keyword → example brain).
-- Auto-fallback to mock with HUD warning when no API key is configured.
+  `responseSchema`, usage parsing, error mapping); `MockLlmClient` (keyword → example brain used in unit tests).
+- Errors and missing API keys properly surface through the LLM pipeline and in-game character speech without silent mock fallback.
 - **Done when:** response parsing unit-tested with recorded JSON fixtures; manual smoke test against Gemini succeeds.
 
 ### F-403 LLM request queue

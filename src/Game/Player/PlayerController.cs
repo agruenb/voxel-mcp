@@ -54,6 +54,7 @@ public partial class PlayerController : CharacterBody3D
     public HotbarUI? HotbarUI { get; set; }
     public DialogueUI? DialogueUI { get; set; }
     public NpcManager? NpcManager { get; set; }
+    public PlayerEntity? PlayerEntity { get; set; }
 
     public Node3D Head { get; private set; } = null!;
     public Camera3D Camera { get; private set; } = null!;
@@ -277,6 +278,14 @@ public partial class PlayerController : CharacterBody3D
             if (keyEvent.Keycode == Key.F)
             {
                 ToggleFly();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+
+            if (keyEvent.Keycode == Key.Q && !keyEvent.Echo)
+            {
+                bool dropAll = keyEvent.CtrlPressed || keyEvent.ShiftPressed;
+                DropSelectedItem(dropAll);
                 GetViewport().SetInputAsHandled();
                 return;
             }
@@ -529,6 +538,66 @@ public partial class PlayerController : CharacterBody3D
     }
 
     /// <summary>
+    /// Drops a single item (or entire stack if dropAll is true) from the currently selected hotbar slot.
+    /// </summary>
+    public bool DropSelectedItem(bool dropAll = false)
+    {
+        var slot = Inventory.GetSlot(SelectedHotbarSlot);
+        if (slot == null || slot.IsEmpty) return false;
+
+        int count = dropAll ? slot.Count : 1;
+        return DropItem(SelectedHotbarSlot, count);
+    }
+
+    /// <summary>
+    /// Drops an item stack or single item from the specified inventory slot into the world.
+    /// </summary>
+    public bool DropItem(int slotIndex, int count = 1)
+    {
+        if (count <= 0) return false;
+
+        var slot = Inventory.GetSlot(slotIndex);
+        if (slot == null || slot.IsEmpty) return false;
+
+        int toDrop = Math.Min(count, slot.Count);
+        string itemId = slot.ItemId;
+
+        if (!Inventory.RemoveAt(slotIndex, toDrop))
+        {
+            return false;
+        }
+
+        Vector3 dropDir;
+        Vector3 dropPos;
+        if (Camera != null)
+        {
+            ForceUpdateTransform();
+            Head?.ForceUpdateTransform();
+            Camera.ForceUpdateTransform();
+            dropDir = -Camera.GlobalTransform.Basis.Z.Normalized();
+            dropPos = Camera.GlobalPosition + (dropDir * 0.4f);
+        }
+        else
+        {
+            dropDir = -GlobalTransform.Basis.Z.Normalized();
+            dropPos = GlobalPosition + (Vector3.Up * EyeHeight) + (dropDir * 0.4f);
+        }
+
+        Vector3 velocity = (dropDir * 3.5f) + (Vector3.Up * 1.5f);
+
+        if (NpcManager != null)
+        {
+            NpcManager.SpawnItem(
+                new ItemStack(itemId, toDrop),
+                dropPos.ToCore(),
+                velocity.ToCore(),
+                pickupCooldown: 1.0f);
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Attempts to open a chest or place the selected hotbar block at the targeted raycast position.
     /// </summary>
     public bool TryPlaceOrInteract()
@@ -658,7 +727,7 @@ public partial class PlayerController : CharacterBody3D
             flyVelocity.Y += speed;
         }
 
-        if (Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.C) || Input.IsKeyPressed(Key.Q))
+        if (Input.IsKeyPressed(Key.Ctrl) || Input.IsKeyPressed(Key.C) || Input.IsKeyPressed(Key.Shift))
         {
             flyVelocity.Y -= speed;
         }

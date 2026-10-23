@@ -70,6 +70,7 @@ voxel-king/
 │       ├── World/                  # ChunkNode, mesh upload, collision, chunk streaming
 │       ├── Player/                 # First-person controller, block interaction
 │       ├── Npc/                    # NpcNode (visuals only; movement is simulated in Core), speech bubbles
+│       ├── Entities/               # ItemNode, ItemViewManager (visuals only for dropped items)
 │       ├── UI/                     # Dialogue panel, HUD, chat log
 │       └── Debug/                  # Brain console, NPC inspector overlay
 └── tests/

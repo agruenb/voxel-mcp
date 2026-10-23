@@ -15,6 +15,7 @@ using VoxelKing.Core.Npc.Perception;
 using VoxelKing.Core.Voxel;
 using VoxelKing.Game.Common;
 using VoxelKing.Game.Debug;
+using VoxelKing.Game.Entities;
 using VoxelKing.Game.Npc;
 using VoxelKing.Game.Player;
 using VoxelKing.Game.UI;
@@ -41,6 +42,7 @@ public partial class GameRoot : Node
     public IPerceptionService PerceptionService { get; private set; } = null!;
     public NpcManager NpcManager { get; private set; } = null!;
     public NpcViewManager NpcViewManager { get; private set; } = null!;
+    public ItemViewManager ItemViewManager { get; private set; } = null!;
     public DebugPathRenderer DebugPathRenderer { get; private set; } = null!;
     public DebugConsole DebugConsole { get; private set; } = null!;
     public DebugBrainConsole DebugBrainConsole { get; private set; } = null!;
@@ -141,9 +143,7 @@ public partial class GameRoot : Node
 
         var httpClient = new System.Net.Http.HttpClient();
         var geminiClient = new GeminiClient(httpClient, config.Llm, loggerFactory.CreateLogger<GeminiClient>());
-        var mockClient = new MockLlmClient();
-        var fallbackClient = new FallbackLlmClient(geminiClient, mockClient, config.Llm, EventBus, loggerFactory.CreateLogger<FallbackLlmClient>());
-        LlmClient = fallbackClient;
+        LlmClient = geminiClient;
 
         string llmLogDir = ProjectSettings.GlobalizePath(config.Debug.LlmLogDirectory);
         ILlmRequestLogger requestLogger = config.Debug.LogLlmRequests
@@ -151,12 +151,12 @@ public partial class GameRoot : Node
             : NullLlmRequestLogger.Instance;
 
         LlmQueue = new LlmRequestQueue(
-            fallbackClient,
+            geminiClient,
             config.Llm,
             requestLogger,
             loggerFactory.CreateLogger<LlmRequestQueue>());
 
-        PromptBuilder = new PromptBuilder(new LuaApiRegistry());
+        PromptBuilder = new PromptBuilder(LuaApiRegistry.Default);
         BrainValidator = new BrainValidator(config.BrainLimits);
         BrainCompiler = new BrainCompiler(
             LlmQueue,
@@ -185,7 +185,7 @@ public partial class GameRoot : Node
 
             HotbarUI = new HotbarUI { Name = "HotbarUI" };
             AddChild(HotbarUI);
-            HotbarUI.BindPlayer(player);
+            HotbarUI.BindPlayer(player, EventBus);
             player.HotbarUI = HotbarUI;
 
             ChestUI = new ChestUI { Name = "ChestUI" };
@@ -204,6 +204,7 @@ public partial class GameRoot : Node
                 player.Inventory
             );
             EntityRegistry.Register(PlayerEntity);
+            player.PlayerEntity = PlayerEntity;
 
             Logger.LogInfo($"Player initialized and spawned at {player.GlobalPosition}");
         }
@@ -230,6 +231,10 @@ public partial class GameRoot : Node
         AddChild(NpcViewManager);
         NpcViewManager.Initialize(EventBus, NpcManager);
 
+        ItemViewManager = new ItemViewManager { Name = "ItemViewManager" };
+        AddChild(ItemViewManager);
+        ItemViewManager.Initialize(EventBus, NpcManager, BlockRegistry);
+
         ChatLogUI = new ChatLogUI { Name = "ChatLogUI" };
         AddChild(ChatLogUI);
         ChatLogUI.Initialize(EventBus);
@@ -248,6 +253,21 @@ public partial class GameRoot : Node
             PathRenderer = DebugPathRenderer
         };
         AddChild(DebugConsole);
+
+        BrainCompiler.ResultApplied += (npc, result) =>
+        {
+            if (result.Status == CompileStatus.Error)
+            {
+                DebugConsole?.Log($"[LLM Error] NPC '{npc.Name}' (ID {npc.Id}): {result.Error?.Kind} - {result.Error?.Message}");
+            }
+            else if (result.Status == CompileStatus.ValidationFailed)
+            {
+                string firstErr = result.Validation?.Errors != null && result.Validation.Errors.Count > 0
+                    ? result.Validation.Errors[0].Message
+                    : "Validation failed";
+                DebugConsole?.Log($"[Brain Validation Failed] NPC '{npc.Name}' (ID {npc.Id}): {firstErr}");
+            }
+        };
 
         DialogueUI = new DialogueUI { Name = "DialogueUI" };
         AddChild(DialogueUI);

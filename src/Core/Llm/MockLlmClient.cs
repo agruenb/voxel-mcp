@@ -126,7 +126,7 @@ public sealed class MockLlmClient : ILlmClient
             : $"{firstUserText} {lower}";
 
         // Multi-turn test scenario: invalid on initial turn, then repaired on subsequent repair turn
-        if (query.Contains("repair") &&
+        if (query.Contains("test_repair") &&
             !query.Contains("syntax_error") && !query.Contains("test_syntax"))
         {
             if (!isRepairTurn)

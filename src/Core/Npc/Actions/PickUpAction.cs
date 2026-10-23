@@ -26,6 +26,8 @@ public sealed class PickUpAction : ActionBase
 
     private PathFollower? _follower;
     private Vec3 _lastItemPos;
+    private IDisposable? _pickupSub;
+    private bool _pickedUpBySelf;
 
     public PickUpAction(
         NpcState npc,
@@ -70,10 +72,24 @@ public sealed class PickUpAction : ActionBase
         }
 
         _lastItemPos = item.Position;
+        _pickupSub = EventBus?.Subscribe<ItemPickedUp>(e =>
+        {
+            if (e.PickerId == Npc.Id && e.ItemId == TargetItemId)
+            {
+                _pickedUpBySelf = true;
+            }
+        });
     }
 
     protected override void OnTick(float dt)
     {
+        if (_pickedUpBySelf)
+        {
+            CleanUpFollower();
+            Succeed();
+            return;
+        }
+
         if (!EntityRegistry.TryGet(TargetItemId, out var entity) || entity is not ItemEntity item || item.IsCollected)
         {
             CleanUpFollower();
@@ -169,6 +185,9 @@ public sealed class PickUpAction : ActionBase
 
     private void CleanUpFollower()
     {
+        _pickupSub?.Dispose();
+        _pickupSub = null;
+
         _follower?.Stop();
         if (ReferenceEquals(Npc.PathFollower, _follower))
         {

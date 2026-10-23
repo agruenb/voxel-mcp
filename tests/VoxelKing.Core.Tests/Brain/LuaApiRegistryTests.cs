@@ -501,4 +501,36 @@ public class LuaApiRegistryTests
         });
         Assert.Contains("cannot change a protected metatable", exMemory.Message);
     }
+
+    [Fact]
+    public void Vec3Alias_CreatesValidPosIdenticalToVec()
+    {
+        var (script, _, _) = CreateTestEnvironment();
+
+        var res = script.DoString(@"
+            local p1 = vec(1, 2, 3)
+            local p2 = vec3(1, 2, 3)
+            return p1 == p2, p2.x, p2.y, p2.z
+        ");
+
+        Assert.True(res.Tuple[0].Boolean);
+        Assert.Equal(1, res.Tuple[1].Number);
+        Assert.Equal(2, res.Tuple[2].Number);
+        Assert.Equal(3, res.Tuple[3].Number);
+    }
+
+    [Fact]
+    public void WorldGetBlockAlias_MatchesWorldBlock()
+    {
+        var (script, _, _) = CreateTestEnvironment();
+
+        var res = script.DoString(@"
+            local b1 = world.block(vec(0, 63, 0))
+            local b2 = world.get_block(vec3(0, 63, 0))
+            return b1, b2, b1 == b2
+        ");
+
+        Assert.Equal(res.Tuple[0].String, res.Tuple[1].String);
+        Assert.True(res.Tuple[2].Boolean);
+    }
 }

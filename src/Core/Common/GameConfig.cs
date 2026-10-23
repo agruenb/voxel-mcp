@@ -93,7 +93,7 @@ public sealed record LlmConfig
 {
     public string Model { get; set; } = "gemini-3.8-flash";
     public float Temperature { get; set; } = 0.3f;
-    public int MaxOutputTokens { get; set; } = 2048;
+    public int MaxOutputTokens { get; set; } = 8192;
     public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetries { get; set; } = 2;
     public int MaxRepairRetries { get; set; } = 2;

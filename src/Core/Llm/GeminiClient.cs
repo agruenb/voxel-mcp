@@ -33,6 +33,12 @@ public sealed class GeminiClient : ILlmClient
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        if (string.IsNullOrWhiteSpace(_config.ApiKey))
+        {
+            _logger?.LogWarning("No Gemini API key configured. Set GEMINI_API_KEY environment variable or apiKey in config.");
+            return LlmResponse.Failure(LlmError.InvalidApiKey("No Gemini API key configured. Set GEMINI_API_KEY environment variable or apiKey in user://config.json."));
+        }
+
         string model = !string.IsNullOrWhiteSpace(request.Model) ? request.Model : _config.Model;
         string endpoint = $"{BaseApiUrl}/{Uri.EscapeDataString(model)}:generateContent";
 
@@ -40,11 +46,7 @@ public sealed class GeminiClient : ILlmClient
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
         httpRequest.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-
-        if (!string.IsNullOrWhiteSpace(_config.ApiKey))
-        {
-            httpRequest.Headers.TryAddWithoutValidation("x-goog-api-key", _config.ApiKey);
-        }
+        httpRequest.Headers.TryAddWithoutValidation("x-goog-api-key", _config.ApiKey);
 
         try
         {
@@ -67,7 +69,7 @@ public sealed class GeminiClient : ILlmClient
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _logger?.LogInfo("Gemini request was cancelled by caller.");
+            _logger?.LogInfo("Gemini request was cancelled.");
             return LlmResponse.Failure(LlmError.Cancelled());
         }
         catch (OperationCanceledException)
@@ -165,10 +167,16 @@ public sealed class GeminiClient : ILlmClient
             }
 
             var firstCandidate = candidates[0];
+            string? finishReason = firstCandidate.TryGetProperty("finishReason", out var frEl) ? frEl.GetString() : null;
+
             if (!firstCandidate.TryGetProperty("content", out var content) ||
                 !content.TryGetProperty("parts", out var parts) ||
                 parts.GetArrayLength() == 0)
             {
+                if (string.Equals(finishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
+                {
+                    return LlmResponse.Failure(LlmError.InvalidJson("Generation reached maxOutputTokens limit before completing."), rawText: json);
+                }
                 return LlmResponse.Failure(LlmError.Unknown("No content parts returned in candidate."), rawText: json);
             }
 
@@ -192,7 +200,12 @@ public sealed class GeminiClient : ILlmClient
             // Parse structured JSON response
             if (!LlmResponseParser.TryParse(rawText, out var brainResponse, out string? parseError))
             {
-                return LlmResponse.Failure(LlmError.InvalidJson(parseError), rawText: rawText, usage: usageStruct);
+                string effectiveError = parseError ?? "Failed to parse structured JSON response.";
+                if (string.Equals(finishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
+                {
+                    effectiveError = $"Generation was truncated because it reached the maximum output token limit ({usageStruct.OutputTokens} tokens). Please provide a more concise script. {effectiveError}";
+                }
+                return LlmResponse.Failure(LlmError.InvalidJson(effectiveError), rawText: rawText, usage: usageStruct);
             }
 
             return LlmResponse.Success(brainResponse, rawText, usageStruct);

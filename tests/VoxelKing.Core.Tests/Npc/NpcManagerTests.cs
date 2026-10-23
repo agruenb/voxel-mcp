@@ -81,6 +81,32 @@ public class NpcManagerTests
     }
 
     [Fact]
+    public void PhysicsTick_Auto_Picks_Up_Nearby_Items_Into_Player_Inventory()
+    {
+        var eventBus = new EventBus();
+        var registry = new EntityRegistry();
+        var manager = new NpcManager(registry, eventBus: eventBus);
+
+        var playerInv = new Inventory(36);
+        var player = new PlayerEntity(registry.GenerateNextId(), "Player", new Vec3(0f, 0f, 0f), playerInv);
+        registry.Register(player);
+
+        var item = manager.SpawnItem(new ItemStack("cobblestone", 8), new Vec3(0.5f, 0f, 0.5f), pickupCooldown: 0f);
+
+        var pickedEvents = new List<ItemPickedUp>();
+        using var sub = eventBus.Subscribe<ItemPickedUp>(e => pickedEvents.Add(e));
+
+        manager.PhysicsTick(0.1f);
+
+        // Item should be picked up into player inventory and despawned
+        Assert.Equal(8, playerInv.CountItem("cobblestone"));
+        Assert.True(item.IsCollected);
+        Assert.Empty(manager.ActiveItems);
+        Assert.Single(pickedEvents);
+        Assert.Equal(player.Id, pickedEvents[0].PickerId);
+    }
+
+    [Fact]
     public void DistanceBased_Lod_Calculates_Tiers_Correctly()
     {
         var registry = new EntityRegistry();

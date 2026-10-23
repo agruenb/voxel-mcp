@@ -42,7 +42,7 @@ public class ConfigTests
 
         Assert.Equal("gemini-3.8-flash", config.Llm.Model);
         Assert.Equal(0.3f, config.Llm.Temperature);
-        Assert.Equal(2048, config.Llm.MaxOutputTokens);
+        Assert.Equal(8192, config.Llm.MaxOutputTokens);
         Assert.Equal(30, config.Llm.TimeoutSeconds);
         Assert.Equal(2, config.Llm.MaxRetries);
         Assert.Equal(2, config.Llm.MaxConcurrentRequests);

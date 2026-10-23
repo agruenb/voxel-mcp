@@ -155,6 +155,7 @@ public sealed class LuaApiRegistry
 
         // 6. Bind world.* namespace
         worldTable["block"] = (Func<ScriptExecutionContext, CallbackArguments, DynValue>)((sc, args) => WorldApiBindings.Block(context, args));
+        worldTable["get_block"] = worldTable["block"];
         worldTable["find_block"] = (Func<ScriptExecutionContext, CallbackArguments, DynValue>)((sc, args) => WorldApiBindings.FindBlock(script, context, args));
         worldTable["find_blocks"] = (Func<ScriptExecutionContext, CallbackArguments, DynValue>)((sc, args) => WorldApiBindings.FindBlocks(script, context, args));
         worldTable["find_entity"] = (Func<ScriptExecutionContext, CallbackArguments, DynValue>)((sc, args) => WorldApiBindings.FindEntity(context, args));
