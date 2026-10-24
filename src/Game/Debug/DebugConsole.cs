@@ -332,6 +332,7 @@ public partial class DebugConsole : CanvasLayer
             case "help":
                 Log("Available commands:");
                 Log("  spawn_npc [name]          - Spawn an NPC in front of player");
+                Log("  spawn_default_npcs        - Spawn default NPC profiles from config");
                 Log("  move_npc <id|name> <vx> <vz> - Move an NPC with velocity");
                 Log("  jump_npc <id|name>        - Make an NPC jump");
                 Log("  stop_npc <id|name>        - Stop an NPC");
@@ -374,6 +375,23 @@ public partial class DebugConsole : CanvasLayer
                 string name = parts.Length > 1 ? parts[1] : "Bob";
                 var npc = SpawnDebugNpc(name);
                 Log($"Spawned NPC '{npc.Name}' (ID {npc.Id}) at {npc.Position}");
+                break;
+            }
+
+            case "spawn_default_npcs":
+            case "spawn_initial_npcs":
+            {
+                var gameRoot = GetParent() as Bootstrap.GameRoot ?? GetTree().Root.GetNodeOrNull<Bootstrap.GameRoot>("GameRoot");
+                var player = GetParent()?.GetNodeOrNull<Player.PlayerController>("Player");
+                if (gameRoot != null && player != null)
+                {
+                    gameRoot.SpawnInitialNpcs(player);
+                    Log("Spawned default NPCs from configuration.");
+                }
+                else
+                {
+                    Log("GameRoot or Player not found.");
+                }
                 break;
             }
 

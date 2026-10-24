@@ -8,6 +8,7 @@ using VoxelKing.Core.Brain;
 using VoxelKing.Core.Npc;
 using VoxelKing.Game.Bootstrap;
 using VoxelKing.Game.Npc;
+using VoxelKing.Game.Player;
 
 /// <summary>
 /// Headless test runner validating F-406: Spawning multiple NPCs with profiles.
@@ -35,6 +36,12 @@ public partial class TestMultipleNpcsRunner : Node
             GD.PrintErr("[FAIL] TestMultipleNpcsRunner could not locate GameRoot.");
             GetTree().Quit(1);
             return;
+        }
+
+        var player = _gameRoot.GetNodeOrNull<PlayerController>("Player");
+        if (player != null && _gameRoot.NpcManager?.ActiveNpcs.Count == 0)
+        {
+            _gameRoot.SpawnInitialNpcs(player);
         }
 
         GD.Print("[INFO] TestMultipleNpcsRunner initialized.");

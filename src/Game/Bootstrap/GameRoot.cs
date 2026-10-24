@@ -367,11 +367,6 @@ public partial class GameRoot : Node
             DialogueUI.Setup(player, NpcManager, BrainCompiler, PlayerEntity);
             player.DialogueUI = DialogueUI;
             player.NpcManager = NpcManager;
-
-            if (NpcManager.ActiveNpcs.Count == 0)
-            {
-                SpawnInitialNpcs(player);
-            }
         }
 
         DebugBrainConsole = new DebugBrainConsole
@@ -410,8 +405,14 @@ public partial class GameRoot : Node
         Logger.LogInfo("BrainCompiler initialized successfully");
     }
 
-    private void SpawnInitialNpcs(PlayerController player)
+    public void SpawnInitialNpcs(PlayerController? player = null)
     {
+        player ??= GetNodeOrNull<PlayerController>("Player");
+        if (player == null || NpcManager == null)
+        {
+            return;
+        }
+
         var playerPos = new Vec3(player.GlobalPosition.X, player.GlobalPosition.Y, player.GlobalPosition.Z);
         IReadOnlyList<NpcProfile> profiles;
 
