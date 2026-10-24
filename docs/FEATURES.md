@@ -17,44 +17,6 @@
 | **M4 LLM** | Natural-language instructions through Gemini | Talk to an NPC, it does what you asked |
 | **M5 Persistence & polish** | Save/load, inspector, UX polish | Quit & reload, NPCs continue their tasks |
 
-```mermaid
-flowchart LR
-  F001-->F002-->F003
-  F002-->F004
-  F002-->F101-->F102-->F103-->F104-->F105
-  F102-->F106
-  F104-->F107-->F108
-  F101-->F201
-  F201-->F202-->F203
-  F102-->F204-->F203
-  F203-->F205
-  F201-->F206
-  F201-->F207
-  F203-->F208
-  F206-->F208
-  F002-->F301-->F302-->F303
-  F203-->F302
-  F206-->F302
-  F207-->F302
-  F303-->F304
-  F303-->F305
-  F303-->F306
-  F108-->F306
-  F303-->F307
-  F302-->F401
-  F305-->F401
-  F002-->F402-->F403
-  F401-->F403
-  F403-->F404
-  F108-->F405
-  F404-->F405
-  F209-->F405
-  F303-->F209
-  F107-->F501
-  F303-->F501
-  F306-->F502
-```
-
 ## Summary table
 
 | ID | Feature | Milestone | Depends on | Status |
@@ -80,6 +42,7 @@ flowchart LR
 | F-207 | NPC memory | M2 | F-201 | Done |
 | F-208 | Behaviour arbiter, idle & reflex layers | M2 | F-205, F-206 | Done |
 | F-209 | Speech system & speech bubbles | M3 | F-303 | Done |
+| F-210 | Lively NPC visuals, expressions & gestures | M2 | F-202, F-405 | Todo |
 | F-301 | Lua sandbox (MoonSharp) | M3 | F-002 | Done |
 | F-302 | Lua API registry & bindings | M3 | F-301, F-205, F-206, F-207 | Done |
 | F-303 | BrainHost (coroutines, budgets, handlers) | M3 | F-302 | Done |
@@ -230,6 +193,14 @@ flowchart LR
 - Core `SpeechSystem`: `EntitySpoke` broadcast, hearing radius, rate limiting, delivery as `on_heard` events
   to brains. Game: speech bubble above NPC (fade out), chat log panel.
 - **Done when:** an NPC brain `say` is visible as a bubble and other brains receive `on_heard`.
+
+### F-210 Lively NPC visuals, expressions & gestures
+- See [LIVELY_NPCS_PLAN.md](LIVELY_NPCS_PLAN.md).
+- Procedural facial features & eye blinking, head-tracking look-at toward players and points of interest.
+- Secondary movement dynamics: banking/leaning into turns, jump/fall anticipation, landing squash/stretch.
+- Handheld item sockets and contextual action gestures (swing on dig/place, thinking pose, conversation gesticulation).
+- **Done when:** NPCs dynamically track nearby players with their heads, blink naturally, lean into turns, and hold/swing active tools when performing actions.
+
 
 ## M3 — Lua brains
 

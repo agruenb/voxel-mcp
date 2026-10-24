@@ -140,7 +140,8 @@ public sealed class NpcManager : IDisposable
         IBehaviourArbiter? arbiter = null,
         string? personality = null,
         IReadOnlyList<string>? skills = null,
-        string appearanceColor = "")
+        string appearanceColor = "",
+        string? archetype = null)
     {
         var id = _registry.GenerateNextId();
         var npcMemory = memory ?? new NpcMemory(BrainLimitsConfig);
@@ -157,7 +158,8 @@ public sealed class NpcManager : IDisposable
             arbiter,
             personality,
             skills,
-            appearanceColor);
+            appearanceColor,
+            archetype);
 
         _registry.Register(npc);
         _npcsById[id] = npc;
@@ -296,7 +298,8 @@ public sealed class NpcManager : IDisposable
             arbiter: arbiter,
             personality: profile.Personality,
             skills: profile.Skills,
-            appearanceColor: profile.AppearanceColor);
+            appearanceColor: profile.AppearanceColor,
+            archetype: profile.Archetype);
 
         // Populate starting inventory if provided
         if (profile.StartingInventory != null && npc.Inventory != null)

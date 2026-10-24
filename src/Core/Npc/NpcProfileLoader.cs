@@ -268,6 +268,12 @@ public static class NpcProfileLoader
             }
         }
 
+        string? archetype = null;
+        if (elem.TryGetProperty("archetype", out var archProp) && archProp.ValueKind == JsonValueKind.String)
+        {
+            archetype = archProp.GetString()?.Trim();
+        }
+
         return new NpcProfile(
             name,
             personality,
@@ -275,7 +281,8 @@ public static class NpcProfileLoader
             appearanceColor,
             homeOffset,
             initialBrain,
-            startingInventory);
+            startingInventory,
+            archetype);
     }
 
     private static Vec3 ParseVec3(JsonElement elem)

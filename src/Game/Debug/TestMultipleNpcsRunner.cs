@@ -38,12 +38,6 @@ public partial class TestMultipleNpcsRunner : Node
             return;
         }
 
-        var player = _gameRoot.GetNodeOrNull<PlayerController>("Player");
-        if (player != null && _gameRoot.NpcManager?.ActiveNpcs.Count == 0)
-        {
-            _gameRoot.SpawnInitialNpcs(player);
-        }
-
         GD.Print("[INFO] TestMultipleNpcsRunner initialized.");
     }
 
@@ -60,6 +54,12 @@ public partial class TestMultipleNpcsRunner : Node
             if (_frameCounter++ < 10)
             {
                 return;
+            }
+
+            if (_gameRoot.NpcManager.ActiveNpcs.Count == 0)
+            {
+                var player = _gameRoot.GetNodeOrNull<PlayerController>("Player");
+                _gameRoot.SpawnInitialNpcs(player);
             }
 
             _viewManager = _gameRoot.GetNodeOrNull<NpcViewManager>("NpcViewManager")!;

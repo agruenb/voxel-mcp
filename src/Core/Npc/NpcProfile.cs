@@ -45,6 +45,11 @@ public sealed class NpcProfile
     /// </summary>
     public IReadOnlyDictionary<string, int>? StartingInventory { get; set; }
 
+    /// <summary>
+    /// Optional character archetype (e.g. "farmer", "miner", "guard", "woodcutter", "courier", "explorer").
+    /// </summary>
+    public string? Archetype { get; set; }
+
     public NpcProfile()
     {
     }
@@ -56,7 +61,8 @@ public sealed class NpcProfile
         string appearanceColor = "",
         Vec3? homeOffset = null,
         string? initialBrain = null,
-        IReadOnlyDictionary<string, int>? startingInventory = null)
+        IReadOnlyDictionary<string, int>? startingInventory = null,
+        string? archetype = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -70,5 +76,6 @@ public sealed class NpcProfile
         HomeOffset = homeOffset ?? Vec3.Zero;
         InitialBrain = initialBrain;
         StartingInventory = startingInventory;
+        Archetype = archetype;
     }
 }

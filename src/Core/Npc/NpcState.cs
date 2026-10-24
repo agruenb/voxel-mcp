@@ -49,6 +49,11 @@ public sealed class NpcState : IEntity
     public string AppearanceColor { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional character archetype defining clothing and headgear silhouette (e.g. "farmer", "miner", "guard").
+    /// </summary>
+    public string? Archetype { get; set; }
+
+    /// <summary>
     /// Short summary of the currently active task assigned to this NPC, or null if idle.
     /// </summary>
     public string? CurrentTaskSummary { get; set; }
@@ -277,7 +282,8 @@ public sealed class NpcState : IEntity
         Arbiter.IBehaviourArbiter? arbiter = null,
         string? personality = null,
         IReadOnlyList<string>? skills = null,
-        string appearanceColor = "")
+        string appearanceColor = "",
+        string? archetype = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -290,6 +296,7 @@ public sealed class NpcState : IEntity
         Personality = personality ?? (string.IsNullOrEmpty(profile) ? string.Empty : profile);
         Skills = skills ?? Array.Empty<string>();
         AppearanceColor = appearanceColor ?? string.Empty;
+        Archetype = archetype;
         Position = position;
         Velocity = Vec3.Zero;
         Home = home ?? position;
