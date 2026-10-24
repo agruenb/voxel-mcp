@@ -174,8 +174,9 @@ flowchart LR
 - **ChunkData:** flat `ushort[]` storage, dirty flag, version counter, and a **per-chunk block-type
   index** (counts + positions of "interesting" blocks such as logs, ores, chests) to make
   `world.find_blocks` cheap.
-- **TerrainGenerator:** deterministic from seed (noise implemented in Core, e.g. port of FastNoiseLite),
-  heightmap + trees + a few resource types.
+- **TerrainGenerator:** deterministic from seed (noise implemented in Core: Simplex and fBm in `FastNoise`),
+  natural rolling heightmaps with smooth biome blending (`BiomeType`: `Plains` and `Woods`), basin-masked lakes,
+  ore veins, and tall organic procedural trees with unique ellipsoidal canopies and branch structures.
 - **Mesher:** greedy meshing with face culling, texture atlas UVs, separate pass for transparent blocks.
 - **ChunkStreaming (Game):** loads/unloads chunks around players, prioritised by distance.
 - **Collision (Game):** per-chunk `ConcavePolygonShape3D` built from the mesh (Jolt).

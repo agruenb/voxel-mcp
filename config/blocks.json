@@ -22,6 +22,11 @@
       "drop": "dirt",
       "isContainer": false,
       "isIndexed": false,
+      "textures": {
+        "top": "grass_top",
+        "bottom": "dirt",
+        "sides": "grass_side"
+      },
       "atlasIndices": {
         "top": 0,
         "bottom": 2,
@@ -37,6 +42,7 @@
       "drop": "dirt",
       "isContainer": false,
       "isIndexed": false,
+      "textures": "dirt",
       "atlasIndices": {
         "all": 2
       }
@@ -50,6 +56,7 @@
       "drop": "cobblestone",
       "isContainer": false,
       "isIndexed": false,
+      "textures": "stone",
       "atlasIndices": {
         "all": 3
       }
@@ -63,6 +70,7 @@
       "drop": "sand",
       "isContainer": false,
       "isIndexed": false,
+      "textures": "sand",
       "atlasIndices": {
         "all": 4
       }
@@ -76,6 +84,7 @@
       "drop": null,
       "isContainer": false,
       "isIndexed": false,
+      "textures": "water",
       "atlasIndices": {
         "all": 5
       }
@@ -89,6 +98,11 @@
       "drop": "oak_log",
       "isContainer": false,
       "isIndexed": true,
+      "textures": {
+        "top": "oak_log_top",
+        "bottom": "oak_log_top",
+        "sides": "oak_log_side"
+      },
       "atlasIndices": {
         "top": 6,
         "bottom": 6,
@@ -104,6 +118,7 @@
       "drop": null,
       "isContainer": false,
       "isIndexed": false,
+      "textures": "oak_leaves",
       "atlasIndices": {
         "all": 8
       }
@@ -117,6 +132,7 @@
       "drop": "planks",
       "isContainer": false,
       "isIndexed": false,
+      "textures": "planks",
       "atlasIndices": {
         "all": 9
       }
@@ -130,6 +146,7 @@
       "drop": "cobblestone",
       "isContainer": false,
       "isIndexed": false,
+      "textures": "cobblestone",
       "atlasIndices": {
         "all": 10
       }
@@ -143,6 +160,11 @@
       "drop": "chest",
       "isContainer": true,
       "isIndexed": true,
+      "textures": {
+        "top": "chest_top",
+        "bottom": "chest_top",
+        "sides": "chest_side"
+      },
       "atlasIndices": {
         "top": 11,
         "bottom": 11,
@@ -158,6 +180,7 @@
       "drop": "coal_ore",
       "isContainer": false,
       "isIndexed": true,
+      "textures": "coal_ore",
       "atlasIndices": {
         "all": 13
       }

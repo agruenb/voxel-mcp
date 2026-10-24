@@ -254,4 +254,50 @@ public class BlockRegistryTests
         };
         Assert.Throws<ArgumentException>(() => new BlockRegistry(dupNumeric));
     }
+
+    [Fact]
+    public void Load_ResolvesNamedTexturesUsingDictionary()
+    {
+        string json = """
+        [
+          { "id": "air", "solid": false, "transparent": true },
+          {
+            "id": "custom_grass",
+            "solid": true,
+            "textures": {
+              "top": "my_grass_top",
+              "bottom": "my_dirt",
+              "sides": "my_grass_side"
+            }
+          },
+          {
+            "id": "custom_dirt",
+            "solid": true,
+            "textures": "my_dirt"
+          }
+        ]
+        """;
+
+        var textureMap = new Dictionary<string, int>
+        {
+            ["my_grass_top"] = 15,
+            ["my_grass_side"] = 16,
+            ["my_dirt"] = 17
+        };
+
+        var registry = BlockRegistry.Load(json, textureMap);
+        var grass = registry.GetDefinition("custom_grass");
+        Assert.Equal(15, grass.AtlasIndices.Top);
+        Assert.Equal(17, grass.AtlasIndices.Bottom);
+        Assert.Equal(16, grass.AtlasIndices.North);
+        Assert.Equal(16, grass.AtlasIndices.South);
+        Assert.Equal(16, grass.AtlasIndices.East);
+        Assert.Equal(16, grass.AtlasIndices.West);
+
+        var dirt = registry.GetDefinition("custom_dirt");
+        Assert.Equal(17, dirt.AtlasIndices.Top);
+        Assert.Equal(17, dirt.AtlasIndices.Bottom);
+        Assert.Equal(17, dirt.AtlasIndices.North);
+    }
 }
+

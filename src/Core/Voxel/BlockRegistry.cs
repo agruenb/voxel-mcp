@@ -161,9 +161,9 @@ public sealed class BlockRegistry : IBlockRegistry
         TryGetDefinition(stringId, out var def) && def.IsIndexed;
 
     /// <summary>
-    /// Loads block definitions from a JSON string.
+    /// Loads block definitions from a JSON string, optionally resolving texture names to atlas indices.
     /// </summary>
-    public static BlockRegistry Load(string json)
+    public static BlockRegistry Load(string json, IReadOnlyDictionary<string, int>? textureNameToIndex = null)
     {
         ArgumentNullException.ThrowIfNull(json);
 
@@ -218,7 +218,7 @@ public sealed class BlockRegistry : IBlockRegistry
             bool container = elem.TryGetProperty("isContainer", out var contProp) && contProp.GetBoolean();
             bool indexed = elem.TryGetProperty("isIndexed", out var idxProp) && idxProp.GetBoolean();
 
-            BlockAtlasIndices atlas = ParseAtlasIndices(elem);
+            BlockAtlasIndices atlas = ParseAtlasIndices(elem, textureNameToIndex);
 
             definitions.Add(new BlockDefinition(
                 numericId,
@@ -241,8 +241,39 @@ public sealed class BlockRegistry : IBlockRegistry
         return new BlockRegistry(definitions);
     }
 
-    private static BlockAtlasIndices ParseAtlasIndices(JsonElement elem)
+    private static BlockAtlasIndices ParseAtlasIndices(JsonElement elem, IReadOnlyDictionary<string, int>? textureNameToIndex)
     {
+        // 1. Check for named "textures" property
+        if (elem.TryGetProperty("textures", out var texElem))
+        {
+            if (texElem.ValueKind == JsonValueKind.String)
+            {
+                string texName = texElem.GetString() ?? string.Empty;
+                int idx = ResolveTextureIndex(texName, textureNameToIndex);
+                return new BlockAtlasIndices(idx);
+            }
+
+            if (texElem.ValueKind == JsonValueKind.Object)
+            {
+                int top = ResolveTextureFromProperty(texElem, "top", textureNameToIndex, 0);
+                int bottom = ResolveTextureFromProperty(texElem, "bottom", textureNameToIndex, 0);
+
+                if (texElem.TryGetProperty("sides", out var sProp) && sProp.ValueKind == JsonValueKind.String)
+                {
+                    int sides = ResolveTextureIndex(sProp.GetString() ?? string.Empty, textureNameToIndex);
+                    return new BlockAtlasIndices(top, bottom, sides);
+                }
+
+                int north = ResolveTextureFromProperty(texElem, "north", textureNameToIndex, 0);
+                int south = ResolveTextureFromProperty(texElem, "south", textureNameToIndex, 0);
+                int east = ResolveTextureFromProperty(texElem, "east", textureNameToIndex, 0);
+                int west = ResolveTextureFromProperty(texElem, "west", textureNameToIndex, 0);
+
+                return new BlockAtlasIndices(top, bottom, north, south, east, west);
+            }
+        }
+
+        // 2. Fall back to numeric "atlasIndices"
         if (elem.TryGetProperty("atlasIndices", out var atlasElem))
         {
             if (atlasElem.ValueKind == JsonValueKind.Number)
@@ -295,10 +326,47 @@ public sealed class BlockRegistry : IBlockRegistry
         return new BlockAtlasIndices(0);
     }
 
+    private static int ResolveTextureFromProperty(JsonElement elem, string propName, IReadOnlyDictionary<string, int>? map, int fallback)
+    {
+        if (elem.TryGetProperty(propName, out var prop) && prop.ValueKind == JsonValueKind.String)
+        {
+            return ResolveTextureIndex(prop.GetString() ?? string.Empty, map);
+        }
+        return fallback;
+    }
+
+    private static int ResolveTextureIndex(string textureName, IReadOnlyDictionary<string, int>? map)
+    {
+        if (map != null && map.TryGetValue(textureName, out int index))
+        {
+            return index;
+        }
+
+        // Standard fallback index mapping for canonical block textures
+        return textureName switch
+        {
+            "grass_top" => 0,
+            "grass_side" => 1,
+            "dirt" => 2,
+            "stone" => 3,
+            "sand" => 4,
+            "water" => 5,
+            "oak_log_top" => 6,
+            "oak_log_side" => 7,
+            "oak_leaves" => 8,
+            "planks" => 9,
+            "cobblestone" => 10,
+            "chest_top" => 11,
+            "chest_side" => 12,
+            "coal_ore" => 13,
+            _ => 0
+        };
+    }
+
     /// <summary>
-    /// Loads block definitions from a file path.
+    /// Loads block definitions from a file path, optionally resolving texture names to atlas indices.
     /// </summary>
-    public static BlockRegistry LoadFromFile(string filePath)
+    public static BlockRegistry LoadFromFile(string filePath, IReadOnlyDictionary<string, int>? textureNameToIndex = null)
     {
         ArgumentNullException.ThrowIfNull(filePath);
         if (!File.Exists(filePath))
@@ -307,7 +375,7 @@ public sealed class BlockRegistry : IBlockRegistry
         }
 
         string json = File.ReadAllText(filePath);
-        return Load(json);
+        return Load(json, textureNameToIndex);
     }
 
     /// <summary>

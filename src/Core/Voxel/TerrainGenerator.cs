@@ -5,12 +5,15 @@ using System.Runtime.CompilerServices;
 using VoxelKing.Core.Common;
 
 /// <summary>
-/// Deterministic, thread-safe procedural terrain generator producing heightmaps, layers, water, ore veins, and trees.
+/// Deterministic, thread-safe procedural terrain generator producing biomes, gentle heightmaps,
+/// natural lake basins, ore veins, and organic procedural trees.
 /// </summary>
 public sealed class TerrainGenerator : ITerrainGenerator
 {
     private readonly TerrainGeneratorConfig _config;
     private readonly FastNoise _heightNoise;
+    private readonly FastNoise _biomeNoise;
+    private readonly FastNoise _basinNoise;
     private readonly FastNoise _coalNoise;
 
     private readonly IBlockRegistry _blockRegistry;
@@ -35,6 +38,8 @@ public sealed class TerrainGenerator : ITerrainGenerator
         _config = config ?? new TerrainGeneratorConfig();
 
         _heightNoise = new FastNoise(seed);
+        _biomeNoise = new FastNoise(seed ^ 0xB10EE); // "BIOME"
+        _basinNoise = new FastNoise(seed ^ 0xBA511); // "BASIN"
         _coalNoise = new FastNoise(seed ^ 0x434F414C); // "COAL"
 
         _airId = blockRegistry.AirId;
@@ -53,19 +58,47 @@ public sealed class TerrainGenerator : ITerrainGenerator
     {
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public float GetBiomeValue(int worldX, int worldZ)
+    {
+        return _biomeNoise.GetNoise2D(worldX * _config.BiomeFrequency, worldZ * _config.BiomeFrequency);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public BiomeType GetBiome(int worldX, int worldZ)
+    {
+        return GetBiomeValue(worldX, worldZ) >= 0.0f ? BiomeType.Woods : BiomeType.Plains;
+    }
+
     public int GetHeight(int worldX, int worldZ)
     {
+        float biomeVal = GetBiomeValue(worldX, worldZ);
+        // Smooth transition weight t: 0.0 for pure plains, 1.0 for pure woods
+        float t = Math.Clamp((biomeVal + 0.15f) * 2.5f, 0.0f, 1.0f);
+        float heightScale = _config.PlainsHeightScale + (t * (_config.WoodsHeightScale - _config.PlainsHeightScale));
+
         float fbm = _heightNoise.GetFbm2D(
             worldX,
             worldZ,
             _config.NoiseOctaves,
-            0.5f,
+            _config.Persistence,
             2.0f,
             _config.NoiseFrequency
         );
 
-        int height = (int)MathF.Round(_config.BaseHeight + (fbm * _config.HeightScale));
-        return Math.Clamp(height, 1, 254);
+        float height = _config.BaseHeight + (fbm * heightScale);
+
+        // Basin lake depression (carves localized lakes in deep basins rather than global flooding)
+        float basin = _basinNoise.GetNoise2D(worldX * _config.BasinFrequency, worldZ * _config.BasinFrequency);
+        if (basin < _config.LakeThreshold)
+        {
+            float depthFraction = (_config.LakeThreshold - basin) / (1.0f + _config.LakeThreshold);
+            float smoothDepression = depthFraction * depthFraction * (3.0f - (2.0f * depthFraction));
+            height -= smoothDepression * _config.LakeDepthScale;
+        }
+
+        int finalHeight = (int)MathF.Round(height);
+        return Math.Clamp(finalHeight, 1, 254);
     }
 
     public ChunkData GenerateChunk(Vec3i chunkCoord)
@@ -91,14 +124,14 @@ public sealed class TerrainGenerator : ITerrainGenerator
         int chunkMaxY = chunkMinY + ChunkData.Size - 1;
 
         // Optimization: Chunks completely above the maximum possible terrain + tree canopy are pure air
-        int maxPossibleTerrain = (int)MathF.Ceiling(_config.BaseHeight + _config.HeightScale) + _config.TreeTrunkHeight + 3;
+        int maxPossibleTerrain = (int)MathF.Ceiling(_config.BaseHeight + _config.WoodsHeightScale) + _config.MaxWoodsTreeHeight + 6;
         if (chunkMinY > maxPossibleTerrain)
         {
             return;
         }
 
         // Optimization: Chunks completely deep underground only contain stone and ore
-        int minPossibleTerrain = (int)MathF.Floor(_config.BaseHeight - _config.HeightScale) - 4;
+        int minPossibleTerrain = (int)MathF.Floor(_config.BaseHeight - _config.WoodsHeightScale - _config.LakeDepthScale) - 4;
         if (chunkMaxY < minPossibleTerrain)
         {
             PopulateUndergroundChunk(chunk, chunkMinX, chunkMinY, chunkMinZ);
@@ -166,7 +199,7 @@ public sealed class TerrainGenerator : ITerrainGenerator
             }
         }
 
-        // Place trees overlapping this chunk
+        // Place organic trees overlapping this chunk
         PopulateTrees(chunk, chunkMinX, chunkMinY, chunkMinZ);
     }
 
@@ -199,16 +232,125 @@ public sealed class TerrainGenerator : ITerrainGenerator
         return noise > _config.CoalThreshold;
     }
 
+    private readonly struct TreeSpec
+    {
+        public readonly bool Exists;
+        public readonly int X;
+        public readonly int BaseY;
+        public readonly int Z;
+        public readonly int TrunkHeight;
+        public readonly float CanopyRadiusX;
+        public readonly float CanopyRadiusY;
+        public readonly float CanopyRadiusZ;
+        public readonly byte BranchCount;
+        public readonly (sbyte Dx, sbyte Dy, sbyte Dz) Branch0;
+        public readonly (sbyte Dx, sbyte Dy, sbyte Dz) Branch1;
+
+        public TreeSpec(
+            bool exists,
+            int x, int baseY, int z,
+            int trunkHeight,
+            float canopyRadiusX, float canopyRadiusY, float canopyRadiusZ,
+            byte branchCount,
+            (sbyte, sbyte, sbyte) branch0 = default,
+            (sbyte, sbyte, sbyte) branch1 = default)
+        {
+            Exists = exists;
+            X = x;
+            BaseY = baseY;
+            Z = z;
+            TrunkHeight = trunkHeight;
+            CanopyRadiusX = canopyRadiusX;
+            CanopyRadiusY = canopyRadiusY;
+            CanopyRadiusZ = canopyRadiusZ;
+            BranchCount = branchCount;
+            Branch0 = branch0;
+            Branch1 = branch1;
+        }
+    }
+
+    private bool TryGetTreeSpec(int cx, int cz, out TreeSpec spec)
+    {
+        uint hash = HashCell(cx, cz, Seed ^ 0x5EED);
+        int offsetX = (int)((hash >> 3) & 7);
+        int offsetZ = (int)((hash >> 6) & 7);
+
+        int treeX = (cx << 3) + offsetX;
+        int treeZ = (cz << 3) + offsetZ;
+
+        float biomeVal = GetBiomeValue(treeX, treeZ);
+        bool isWoods = biomeVal >= 0.0f;
+
+        int chancePermille = (int)((hash >> 9) % 1000);
+        int threshold = isWoods
+            ? (int)(_config.WoodsTreeChance * 1000)
+            : (int)(_config.PlainsTreeChance * 1000);
+
+        if (chancePermille >= threshold)
+        {
+            spec = default;
+            return false;
+        }
+
+        int treeBaseY = GetHeight(treeX, treeZ);
+        if (treeBaseY <= _config.WaterLevel + 1)
+        {
+            spec = default;
+            return false;
+        }
+
+        int trunkHeight;
+        float rx, ry, rz;
+        byte branchCount = 0;
+        (sbyte, sbyte, sbyte) b0 = default;
+        (sbyte, sbyte, sbyte) b1 = default;
+
+        if (isWoods)
+        {
+            int range = Math.Max(1, _config.MaxWoodsTreeHeight - _config.MinWoodsTreeHeight + 1);
+            trunkHeight = _config.MinWoodsTreeHeight + (int)((hash >> 19) % (uint)range);
+            rx = 3.2f + (((hash >> 23) & 3) * 0.25f);
+            rz = 3.2f + (((hash >> 25) & 3) * 0.25f);
+            ry = 4.0f + (((hash >> 27) & 3) * 0.4f);
+
+            if (trunkHeight >= 12)
+            {
+                branchCount = 2;
+                sbyte dirX1 = (sbyte)(((hash & 1) == 0) ? 1 : -1);
+                sbyte dirZ1 = (sbyte)(((hash & 2) == 0) ? 1 : -1);
+                sbyte dirX2 = (sbyte)-dirX1;
+                sbyte dirZ2 = (sbyte)(((hash & 4) == 0) ? 1 : -1);
+                b0 = (dirX1, (sbyte)(trunkHeight - 3), dirZ1);
+                b1 = (dirX2, (sbyte)(trunkHeight - 2), dirZ2);
+            }
+        }
+        else
+        {
+            int range = Math.Max(1, _config.MaxPlainsTreeHeight - _config.MinPlainsTreeHeight + 1);
+            trunkHeight = _config.MinPlainsTreeHeight + (int)((hash >> 19) % (uint)range);
+            rx = 2.8f + (((hash >> 23) & 3) * 0.3f);
+            rz = 2.8f + (((hash >> 25) & 3) * 0.3f);
+            ry = 2.8f + (((hash >> 27) & 3) * 0.35f);
+        }
+
+        spec = new TreeSpec(
+            true,
+            treeX, treeBaseY, treeZ,
+            trunkHeight,
+            rx, ry, rz,
+            branchCount,
+            b0, b1
+        );
+        return true;
+    }
+
     private void PopulateTrees(ChunkData chunk, int chunkMinX, int chunkMinY, int chunkMinZ)
     {
-        int cellSize = _config.TreeCellSize;
-        int trunkHeight = _config.TreeTrunkHeight;
-
-        // Tree canopies have horizontal radius 2. Search cells that could overlap this chunk.
-        int minWorldX = chunkMinX - 2;
-        int maxWorldX = chunkMinX + ChunkData.Size + 1;
-        int minWorldZ = chunkMinZ - 2;
-        int maxWorldZ = chunkMinZ + ChunkData.Size + 1;
+        // Search cells that could have trunks or canopies overlapping this chunk (canopy max radius ~4)
+        int minWorldX = chunkMinX - 4;
+        int maxWorldX = chunkMinX + ChunkData.Size + 3;
+        int minWorldZ = chunkMinZ - 4;
+        int maxWorldZ = chunkMinZ + ChunkData.Size + 3;
 
         int minCellX = minWorldX >> 3;
         int maxCellX = maxWorldX >> 3;
@@ -219,72 +361,61 @@ public sealed class TerrainGenerator : ITerrainGenerator
         {
             for (int cx = minCellX; cx <= maxCellX; cx++)
             {
-                uint hash = HashCell(cx, cz, Seed ^ 0x5EED);
-
-                // Approximately 1 in 3 cells contains a tree
-                if ((hash % 3) != 0)
+                if (TryGetTreeSpec(cx, cz, out var spec))
                 {
-                    continue;
+                    PlaceTree(chunk, chunkMinX, chunkMinY, chunkMinZ, in spec);
                 }
-
-                int offsetX = (int)((hash >> 3) & 7);
-                int offsetZ = (int)((hash >> 6) & 7);
-
-                int treeX = (cx << 3) + offsetX;
-                int treeZ = (cz << 3) + offsetZ;
-
-                int treeBaseY = GetHeight(treeX, treeZ);
-
-                // Trees only grow on grass (above water level + 1)
-                if (treeBaseY <= _config.WaterLevel + 1)
-                {
-                    continue;
-                }
-
-                PlaceTree(chunk, chunkMinX, chunkMinY, chunkMinZ, treeX, treeBaseY, treeZ, trunkHeight);
             }
         }
     }
 
     /// <summary>
-    /// Checks if a procedural tree trunk exists at the specified world X and Z coordinates.
+    /// Checks if a procedural tree trunk or branch exists at the specified world X and Z coordinates.
     /// </summary>
     public bool HasTreeTrunk(int worldX, int worldZ)
     {
-        int cx = worldX >> 3;
-        int cz = worldZ >> 3;
+        int baseCx = worldX >> 3;
+        int baseCz = worldZ >> 3;
 
-        uint hash = HashCell(cx, cz, Seed ^ 0x5EED);
-        if ((hash % 3) != 0)
+        for (int cz = baseCz - 1; cz <= baseCz + 1; cz++)
         {
-            return false;
+            for (int cx = baseCx - 1; cx <= baseCx + 1; cx++)
+            {
+                if (!TryGetTreeSpec(cx, cz, out var spec))
+                {
+                    continue;
+                }
+
+                if (spec.X == worldX && spec.Z == worldZ)
+                {
+                    return true;
+                }
+
+                if (spec.BranchCount > 0 && spec.X + spec.Branch0.Dx == worldX && spec.Z + spec.Branch0.Dz == worldZ)
+                {
+                    return true;
+                }
+
+                if (spec.BranchCount > 1 && spec.X + spec.Branch1.Dx == worldX && spec.Z + spec.Branch1.Dz == worldZ)
+                {
+                    return true;
+                }
+            }
         }
 
-        int offsetX = (int)((hash >> 3) & 7);
-        int offsetZ = (int)((hash >> 6) & 7);
-
-        int treeX = (cx << 3) + offsetX;
-        int treeZ = (cz << 3) + offsetZ;
-
-        if (worldX != treeX || worldZ != treeZ)
-        {
-            return false;
-        }
-
-        int treeBaseY = GetHeight(treeX, treeZ);
-        return treeBaseY > _config.WaterLevel + 1;
+        return false;
     }
 
-    private void PlaceTree(ChunkData chunk, int chunkMinX, int chunkMinY, int chunkMinZ, int treeX, int treeBaseY, int treeZ, int trunkHeight)
+    private void PlaceTree(ChunkData chunk, int chunkMinX, int chunkMinY, int chunkMinZ, in TreeSpec spec)
     {
-        int topY = treeBaseY + trunkHeight;
+        int topY = spec.BaseY + spec.TrunkHeight;
 
         // 1. Trunk
-        for (int y = treeBaseY + 1; y <= topY; y++)
+        for (int y = spec.BaseY + 1; y <= topY; y++)
         {
-            int lx = treeX - chunkMinX;
+            int lx = spec.X - chunkMinX;
             int ly = y - chunkMinY;
-            int lz = treeZ - chunkMinZ;
+            int lz = spec.Z - chunkMinZ;
 
             if ((uint)lx < ChunkData.Size && (uint)ly < ChunkData.Size && (uint)lz < ChunkData.Size)
             {
@@ -292,83 +423,88 @@ public sealed class TerrainGenerator : ITerrainGenerator
             }
         }
 
-        // 2. Canopy leaves
-        // Layers topY - 2 and topY - 1: 5x5 with trimmed corners
-        for (int y = topY - 2; y <= topY - 1; y++)
+        // 2. Branches
+        if (spec.BranchCount > 0)
         {
-            int ly = y - chunkMinY;
+            PlaceBranch(chunk, chunkMinX, chunkMinY, chunkMinZ, spec.X, spec.BaseY, spec.Z, spec.Branch0);
+            if (spec.BranchCount > 1)
+            {
+                PlaceBranch(chunk, chunkMinX, chunkMinY, chunkMinZ, spec.X, spec.BaseY, spec.Z, spec.Branch1);
+            }
+        }
+
+        // 3. Organic Ellipsoidal Canopy
+        int centerY = topY - 1;
+        int minDy = -(int)MathF.Floor(spec.CanopyRadiusY);
+        int maxDy = (int)MathF.Ceiling(spec.CanopyRadiusY);
+        int maxDx = (int)MathF.Ceiling(spec.CanopyRadiusX);
+        int maxDz = (int)MathF.Ceiling(spec.CanopyRadiusZ);
+
+        float invRxSq = 1.0f / (spec.CanopyRadiusX * spec.CanopyRadiusX);
+        float invRySq = 1.0f / (spec.CanopyRadiusY * spec.CanopyRadiusY);
+        float invRzSq = 1.0f / (spec.CanopyRadiusZ * spec.CanopyRadiusZ);
+
+        for (int dy = minDy; dy <= maxDy; dy++)
+        {
+            int worldY = centerY + dy;
+            int ly = worldY - chunkMinY;
             if ((uint)ly >= ChunkData.Size) continue;
 
-            for (int dz = -2; dz <= 2; dz++)
+            float nySq = (dy * dy) * invRySq;
+            if (nySq > 1.25f) continue;
+
+            for (int dz = -maxDz; dz <= maxDz; dz++)
             {
-                int lz = (treeZ + dz) - chunkMinZ;
+                int worldZ = spec.Z + dz;
+                int lz = worldZ - chunkMinZ;
                 if ((uint)lz >= ChunkData.Size) continue;
 
-                for (int dx = -2; dx <= 2; dx++)
-                {
-                    if (Math.Abs(dx) == 2 && Math.Abs(dz) == 2) continue; // Trim corners
+                float nzSq = (dz * dz) * invRzSq;
+                if (nySq + nzSq > 1.35f) continue;
 
-                    int lx = (treeX + dx) - chunkMinX;
+                for (int dx = -maxDx; dx <= maxDx; dx++)
+                {
+                    float nxSq = (dx * dx) * invRxSq;
+                    float distSq = nxSq + nySq + nzSq;
+                    if (distSq > 1.05f) continue;
+
+                    int worldX = spec.X + dx;
+                    int lx = worldX - chunkMinX;
                     if ((uint)lx >= ChunkData.Size) continue;
 
-                    // Do not overwrite trunk
-                    if (dx == 0 && dz == 0 && y <= topY) continue;
+                    // Do not overwrite trunk or branch logs
+                    ushort current = chunk.GetBlock(lx, ly, lz);
+                    if (current != _airId) continue;
 
-                    if (chunk.GetBlock(lx, ly, lz) == _airId)
-                    {
-                        chunk.SetBlock(lx, ly, lz, _oakLeavesId);
-                    }
+                    chunk.SetBlock(lx, ly, lz, _oakLeavesId);
                 }
             }
         }
+    }
 
-        // Layer topY: 3x3 square
-        int lyTop = topY - chunkMinY;
-        if ((uint)lyTop < ChunkData.Size)
+    private void PlaceBranch(ChunkData chunk, int chunkMinX, int chunkMinY, int chunkMinZ, int baseX, int baseY, int baseZ, (sbyte Dx, sbyte Dy, sbyte Dz) branch)
+    {
+        int wx = baseX + branch.Dx;
+        int wy = baseY + branch.Dy;
+        int wz = baseZ + branch.Dz;
+
+        int lx = wx - chunkMinX;
+        int ly = wy - chunkMinY;
+        int lz = wz - chunkMinZ;
+
+        if ((uint)lx < ChunkData.Size && (uint)ly < ChunkData.Size && (uint)lz < ChunkData.Size)
         {
-            for (int dz = -1; dz <= 1; dz++)
-            {
-                int lz = (treeZ + dz) - chunkMinZ;
-                if ((uint)lz >= ChunkData.Size) continue;
-
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    int lx = (treeX + dx) - chunkMinX;
-                    if ((uint)lx >= ChunkData.Size) continue;
-
-                    if (dx == 0 && dz == 0) continue; // Trunk top
-
-                    if (chunk.GetBlock(lx, lyTop, lz) == _airId)
-                    {
-                        chunk.SetBlock(lx, lyTop, lz, _oakLeavesId);
-                    }
-                }
-            }
+            chunk.SetBlock(lx, ly, lz, _oakLogId);
         }
+    }
 
-        // Layer topY + 1: cross shape (+ shaped, radius 1)
-        int lyAbove = (topY + 1) - chunkMinY;
-        if ((uint)lyAbove < ChunkData.Size)
-        {
-            for (int dz = -1; dz <= 1; dz++)
-            {
-                int lz = (treeZ + dz) - chunkMinZ;
-                if ((uint)lz >= ChunkData.Size) continue;
-
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    if (Math.Abs(dx) + Math.Abs(dz) > 1) continue;
-
-                    int lx = (treeX + dx) - chunkMinX;
-                    if ((uint)lx >= ChunkData.Size) continue;
-
-                    if (chunk.GetBlock(lx, lyAbove, lz) == _airId)
-                    {
-                        chunk.SetBlock(lx, lyAbove, lz, _oakLeavesId);
-                    }
-                }
-            }
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint HashLeaf(int x, int y, int z)
+    {
+        uint h = ((uint)x * 0x85EBCA6Bu) ^ ((uint)y * 0xC2B2AE35u) ^ ((uint)z * 0x27D4EB2Fu);
+        h ^= h >> 16;
+        h *= 0x85EBCA6Bu;
+        return h;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

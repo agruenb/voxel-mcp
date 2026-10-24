@@ -23,6 +23,11 @@ public interface ITerrainGenerator
     int GetHeight(int worldX, int worldZ);
 
     /// <summary>
+    /// Gets the biome type at the given world coordinates.
+    /// </summary>
+    BiomeType GetBiome(int worldX, int worldZ);
+
+    /// <summary>
     /// Generates a new populated ChunkData for the given chunk coordinates.
     /// </summary>
     ChunkData GenerateChunk(Vec3i chunkCoord);

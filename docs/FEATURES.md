@@ -102,9 +102,11 @@
 - **Done when:** unit tests for coordinate conversion (incl. negatives), get/set, border-dirty logic.
 
 ### F-102 Terrain generation
-- Deterministic `TerrainGenerator(seed)` running on worker threads: heightmap noise, grass/dirt/stone layers,
-  sand near water level, trees, coal ore. Noise implementation in Core (no Godot `FastNoiseLite`).
-- **Done when:** same seed ⇒ identical chunks (test); generation of a chunk < 5 ms on dev machine (benchmark logged).
+- Deterministic `TerrainGenerator(seed)` running on worker threads: natural rolling heightmaps with smooth biome blending
+  (`BiomeType.Plains` and `BiomeType.Woods`), basin-masked lakes, sand beaches, tall organic procedural trees with unique
+  canopies and branches, coal ore. Noise implementation in Core (no Godot `FastNoiseLite`). Seamless borderless texture atlas.
+- **Done when:** same seed ⇒ identical chunks (test); generation of a chunk < 5 ms on dev machine (benchmark logged);
+  unit tests verify biome distribution, reduced lake basins, and tree density differentiation.
 
 ### F-103 Chunk meshing
 - Greedy mesher producing vertex/normal/UV/index arrays (Core types) with face culling against neighbours.

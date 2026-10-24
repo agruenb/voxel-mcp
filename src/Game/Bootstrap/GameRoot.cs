@@ -105,11 +105,13 @@ public partial class GameRoot : Node
         EventBus = new EventBus();
         Dispatcher = new MainThreadDispatcher(loggerFactory.CreateLogger<MainThreadDispatcher>());
 
+        var stitchResult = TextureAtlasStitcher.GetOrStitch();
+
         if (File.Exists(blocksPath))
         {
             try
             {
-                BlockRegistry = VoxelKing.Core.Voxel.BlockRegistry.LoadFromFile(blocksPath);
+                BlockRegistry = VoxelKing.Core.Voxel.BlockRegistry.LoadFromFile(blocksPath, stitchResult.TextureIndices);
             }
             catch (Exception ex)
             {
@@ -125,7 +127,7 @@ public partial class GameRoot : Node
         VoxelWorld = new VoxelWorld(BlockRegistry, EventBus);
         PathfindingService = new PathfindingService(VoxelWorld);
         TerrainGenerator = new TerrainGenerator(config.World, BlockRegistry);
-        ChunkMesher = new ChunkMesher(BlockRegistry);
+        ChunkMesher = new ChunkMesher(BlockRegistry, stitchResult.Config);
 
         EntityRegistry = new EntityRegistry(config.World.PerceptionRadiusBlocks);
         PerceptionService = new PerceptionService(VoxelWorld, EntityRegistry, config.World);

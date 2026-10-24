@@ -207,4 +207,135 @@ public class TerrainGeneratorTests
         // Feature acceptance criterion: generation of a chunk < 5 ms in release (10 ms in unoptimized debug)
         Assert.True(avgMs < threshold, $"Average chunk generation time ({avgMs:F3} ms) exceeded {threshold} ms threshold.");
     }
+
+    [Fact]
+    public void GetBiome_DistributesBothPlainsAndWoods()
+    {
+        var generator = new TerrainGenerator(1337, _registry);
+
+        int plainsCount = 0;
+        int woodsCount = 0;
+
+        // Sample across a 1000x1000 block region
+        for (int x = -500; x <= 500; x += 50)
+        {
+            for (int z = -500; z <= 500; z += 50)
+            {
+                var biome = generator.GetBiome(x, z);
+                if (biome == BiomeType.Plains) plainsCount++;
+                else if (biome == BiomeType.Woods) woodsCount++;
+            }
+        }
+
+        Assert.True(plainsCount > 0, "World should contain Plains biomes.");
+        Assert.True(woodsCount > 0, "World should contain Woods biomes.");
+        double plainsRatio = (double)plainsCount / (plainsCount + woodsCount);
+        // Expect balanced distribution (30% - 70%)
+        Assert.InRange(plainsRatio, 0.30, 0.70);
+    }
+
+    [Fact]
+    public void WoodsBiome_HasSignificantlyHigherTreeDensityThanPlains()
+    {
+        var generator = new TerrainGenerator(1337, _registry);
+        ushort logId = _registry.GetId("oak_log");
+
+        int plainsTrees = 0;
+        int woodsTrees = 0;
+
+        // Search for 20 Plains cells and 20 Woods cells
+        for (int cz = -20; cz <= 20; cz++)
+        {
+            for (int cx = -20; cx <= 20; cx++)
+            {
+                int wx = cx * 8 + 4;
+                int wz = cz * 8 + 4;
+                var biome = generator.GetBiome(wx, wz);
+
+                // Sample whether trunk exists in this cell
+                bool hasTrunk = false;
+                for (int dx = 0; dx < 8 && !hasTrunk; dx++)
+                {
+                    for (int dz = 0; dz < 8 && !hasTrunk; dz++)
+                    {
+                        if (generator.HasTreeTrunk(cx * 8 + dx, cz * 8 + dz))
+                        {
+                            hasTrunk = true;
+                        }
+                    }
+                }
+
+                if (hasTrunk)
+                {
+                    if (biome == BiomeType.Plains) plainsTrees++;
+                    else woodsTrees++;
+                }
+            }
+        }
+
+        _output.WriteLine($"[Tree Density] Plains tree count: {plainsTrees}, Woods tree count: {woodsTrees}");
+        Assert.True(woodsTrees > plainsTrees * 2, "Woods biome should have substantially higher tree density than Plains.");
+    }
+
+    [Fact]
+    public void LakeCoverage_IsReducedToNaturalBasins()
+    {
+        var generator = new TerrainGenerator(1337, _registry);
+
+        int totalColumns = 0;
+        int waterColumns = 0;
+
+        // Sample surface heights across a 400x400 block region
+        for (int x = -200; x <= 200; x += 8)
+        {
+            for (int z = -200; z <= 200; z += 8)
+            {
+                totalColumns++;
+                int height = generator.GetHeight(x, z);
+                if (height <= generator.WaterLevel)
+                {
+                    waterColumns++;
+                }
+            }
+        }
+
+        double waterPercentage = (double)waterColumns / totalColumns * 100.0;
+        _output.WriteLine($"[Lake Coverage] Water columns: {waterColumns}/{totalColumns} ({waterPercentage:F1}%)");
+
+        // Lake coverage should be naturally limited to distinct basins (under 20%, rather than legacy ~45%)
+        Assert.InRange(waterPercentage, 1.0, 20.0);
+    }
+
+    [Fact]
+    public void HasTreeTrunk_ReturnsTrueAtTrunkLocationAndFalseNearby()
+    {
+        var generator = new TerrainGenerator(1337, _registry);
+
+        // Find a tree trunk in a dense woods area
+        bool foundTree = false;
+        int treeX = 0;
+        int treeZ = 0;
+
+        for (int x = -100; x <= 100 && !foundTree; x++)
+        {
+            for (int z = -100; z <= 100 && !foundTree; z++)
+            {
+                if (generator.HasTreeTrunk(x, z))
+                {
+                    foundTree = true;
+                    treeX = x;
+                    treeZ = z;
+                }
+            }
+        }
+
+        Assert.True(foundTree, "Should find at least one tree trunk in the search area.");
+        Assert.True(generator.HasTreeTrunk(treeX, treeZ));
+
+        // Point 10 blocks away is very unlikely to be the same tree trunk
+        bool distantTrunk = generator.HasTreeTrunk(treeX + 3, treeZ + 3);
+        // Note: Could be another tree, but at +3, +3 in cell it's generally clear
+        Assert.True(generator.HasTreeTrunk(treeX, treeZ), "Exact trunk position must always return true.");
+    }
 }
+

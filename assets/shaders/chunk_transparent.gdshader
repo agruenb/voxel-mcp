@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, diffuse_lambert, specular_schlick_ggx;
+render_mode cull_back, depth_draw_always, diffuse_lambert, specular_schlick_ggx;
 
 uniform sampler2D texture_albedo : source_color, filter_nearest;
 uniform vec2 atlas_size = vec2(4.0, 4.0);
@@ -41,7 +41,12 @@ void fragment() {
     vec2 dY = dFdy(local_uv) * tile_uv_size;
     vec4 tex_color = textureGrad(texture_albedo, atlas_uv, dX, dY);
 
+    if (tex_color.a < 0.1) {
+        discard;
+    }
+
     ALBEDO = tex_color.rgb;
     ALPHA = tex_color.a;
-    ROUGHNESS = 0.5;
+    ROUGHNESS = 0.8;
 }
+

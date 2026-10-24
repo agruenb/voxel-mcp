@@ -2,6 +2,7 @@ namespace VoxelKing.Game.World;
 
 using System;
 using Godot;
+using VoxelKing.Core.Voxel;
 
 /// <summary>
 /// Container and factory for shared chunk rendering materials.
@@ -12,48 +13,21 @@ public sealed class ChunkMaterials
     public Material Opaque { get; }
     public Material Transparent { get; }
     public Texture2D AtlasTexture { get; }
+    public TextureAtlasConfig AtlasConfig { get; }
 
-    public ChunkMaterials(string atlasPath = "res://assets/textures/blocks_atlas.png")
+    public ChunkMaterials()
     {
-        Texture2D? texture = null;
-        try
-        {
-            if (ResourceLoader.Exists(atlasPath))
-            {
-                texture = GD.Load<Texture2D>(atlasPath);
-            }
-        }
-        catch
-        {
-            // Fall back to direct file loading
-        }
-
-        if (texture == null)
-        {
-            string globalPath = ProjectSettings.GlobalizePath(atlasPath);
-            if (System.IO.File.Exists(globalPath))
-            {
-                var image = Image.LoadFromFile(globalPath);
-                texture = ImageTexture.CreateFromImage(image);
-            }
-            else
-            {
-                // Fallback 128x128 blank texture if file does not exist
-                var image = Image.CreateEmpty(128, 128, false, Image.Format.Rgba8);
-                image.Fill(new Color(0.5f, 0.5f, 0.5f, 1f));
-                texture = ImageTexture.CreateFromImage(image);
-            }
-        }
-
-        AtlasTexture = texture;
+        var stitchResult = TextureAtlasStitcher.GetOrStitch();
+        AtlasTexture = stitchResult.AtlasTexture;
+        AtlasConfig = stitchResult.Config;
 
         var opaqueShader = LoadShader("res://assets/shaders/chunk_opaque.gdshader", OpaqueShaderFallback);
         var opaqueMat = new ShaderMaterial
         {
             Shader = opaqueShader
         };
-        opaqueMat.SetShaderParameter("texture_albedo", texture);
-        opaqueMat.SetShaderParameter("atlas_size", new Vector2(4f, 4f));
+        opaqueMat.SetShaderParameter("texture_albedo", AtlasTexture);
+        opaqueMat.SetShaderParameter("atlas_size", new Vector2(AtlasConfig.Columns, AtlasConfig.Rows));
         Opaque = opaqueMat;
 
         var transparentShader = LoadShader("res://assets/shaders/chunk_transparent.gdshader", TransparentShaderFallback);
@@ -61,9 +35,41 @@ public sealed class ChunkMaterials
         {
             Shader = transparentShader
         };
-        transparentMat.SetShaderParameter("texture_albedo", texture);
-        transparentMat.SetShaderParameter("atlas_size", new Vector2(4f, 4f));
+        transparentMat.SetShaderParameter("texture_albedo", AtlasTexture);
+        transparentMat.SetShaderParameter("atlas_size", new Vector2(AtlasConfig.Columns, AtlasConfig.Rows));
         Transparent = transparentMat;
+    }
+
+    public ChunkMaterials(Texture2D atlasTexture, TextureAtlasConfig atlasConfig)
+    {
+        ArgumentNullException.ThrowIfNull(atlasTexture);
+        ArgumentNullException.ThrowIfNull(atlasConfig);
+
+        AtlasTexture = atlasTexture;
+        AtlasConfig = atlasConfig;
+
+        var opaqueShader = LoadShader("res://assets/shaders/chunk_opaque.gdshader", OpaqueShaderFallback);
+        var opaqueMat = new ShaderMaterial
+        {
+            Shader = opaqueShader
+        };
+        opaqueMat.SetShaderParameter("texture_albedo", AtlasTexture);
+        opaqueMat.SetShaderParameter("atlas_size", new Vector2(AtlasConfig.Columns, AtlasConfig.Rows));
+        Opaque = opaqueMat;
+
+        var transparentShader = LoadShader("res://assets/shaders/chunk_transparent.gdshader", TransparentShaderFallback);
+        var transparentMat = new ShaderMaterial
+        {
+            Shader = transparentShader
+        };
+        transparentMat.SetShaderParameter("texture_albedo", AtlasTexture);
+        transparentMat.SetShaderParameter("atlas_size", new Vector2(AtlasConfig.Columns, AtlasConfig.Rows));
+        Transparent = transparentMat;
+    }
+
+    public ChunkMaterials(string atlasPath)
+        : this()
+    {
     }
 
     private static Shader LoadShader(string resourcePath, string fallbackCode)
@@ -140,7 +146,7 @@ void fragment() {
 ";
 
     private const string TransparentShaderFallback = @"shader_type spatial;
-render_mode cull_disabled, diffuse_lambert, specular_schlick_ggx;
+render_mode cull_back, depth_draw_always, diffuse_lambert, specular_schlick_ggx;
 
 uniform sampler2D texture_albedo : source_color, filter_nearest;
 uniform vec2 atlas_size = vec2(4.0, 4.0);
@@ -175,9 +181,13 @@ void fragment() {
     vec2 dY = dFdy(local_uv) * tile_uv_size;
     vec4 tex_color = textureGrad(texture_albedo, atlas_uv, dX, dY);
 
+    if (tex_color.a < 0.1) {
+        discard;
+    }
+
     ALBEDO = tex_color.rgb;
     ALPHA = tex_color.a;
-    ROUGHNESS = 0.5;
+    ROUGHNESS = 0.8;
 }
 ";
 }
